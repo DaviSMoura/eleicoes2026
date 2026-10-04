@@ -286,6 +286,17 @@ export function normalizeResult(key: string, raw: RawResult): NormalizedRace {
   };
 }
 
+// ---------- generations ----------
+// The TSE CDN has many edge servers and they do not all refresh at once: in the same second,
+// one returns generation 1100978 (0.85% counted) and another 1089371 (0.19%). The idg grows
+// with every generation, so anything older than what we stored is a stale edge, not news.
+export function isOlderGeneration(incoming: string, stored: string | null | undefined) {
+  if (!stored) return false;
+  const a = Number(incoming);
+  const b = Number(stored);
+  return Number.isFinite(a) && Number.isFinite(b) && a < b;
+}
+
 // ---------- change detection over the "-ab" (abrangência) index files ----------
 
 export type AbSummary = Record<string, string>; // abr -> fingerprint

@@ -5,6 +5,7 @@ import {
   abUrl,
   assignColors,
   diffAb,
+  isOlderGeneration,
   keyFor,
   normalizeResult,
   parseKey,
@@ -144,6 +145,16 @@ describe("ab change detection", () => {
       ),
     };
     expect(diffAb(before, summarizeAb(next, "sp"))).toEqual(["sp71072"]);
+  });
+});
+
+describe("isOlderGeneration", () => {
+  // Real answers from two CDN edges for ma-c0001-e006257 in the same second (04/10 17:21).
+  it("rejects a stale edge and accepts newer or first answers", () => {
+    expect(isOlderGeneration("1089371", "1100978")).toBe(true);
+    expect(isOlderGeneration("1100978", "1089371")).toBe(false);
+    expect(isOlderGeneration("1100978", "1100978")).toBe(false);
+    expect(isOlderGeneration("1100978", null)).toBe(false);
   });
 });
 

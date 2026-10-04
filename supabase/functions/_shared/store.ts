@@ -5,6 +5,7 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 import {
   COLOR_FREEZE_PROGRESS,
   assignColors,
+  isOlderGeneration,
   normalizeResult,
   resultUrl,
   type NormalizedRace,
@@ -93,6 +94,7 @@ export async function fetchTse<T>(
 
 type LatestRow = {
   key: string;
+  idg: string;
   sections: number;
   colors: Record<string, number>;
   colors_frozen: boolean;
@@ -124,7 +126,7 @@ export async function refreshRace(key: string): Promise<Refreshed | null> {
   const stateId = raceStateId(key);
   const [got, prevRes] = await Promise.all([
     getStates([stateId]).then((states) => fetchTse<RawResult>(url, states.get(stateId), stateId)),
-    db.from("results_latest").select("key, sections, colors, colors_frozen").eq("key", key),
+    db.from("results_latest").select("key, idg, sections, colors, colors_frozen").eq("key", key),
   ]);
   const now = new Date().toISOString();
   if (got.kind !== "new") {
@@ -135,6 +137,11 @@ export async function refreshRace(key: string): Promise<Refreshed | null> {
   check(prevRes);
   const prev = (prevRes.data as LatestRow[])[0];
   const race: NormalizedRace = normalizeResult(key, got.body);
+  // A stale CDN edge answered: keep what we have and our etag, and try again next cycle.
+  if (prev && isOlderGeneration(race.data.idg, prev.idg)) {
+    console.log(`stale edge for ${key}: got idg ${race.data.idg}, have ${prev.idg}`);
+    return null;
+  }
 
   const frozen = prev?.colors_frozen ?? false;
   const colors = frozen && prev ? prev.colors : assignColors(race.meta, race.data);
