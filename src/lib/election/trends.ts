@@ -75,6 +75,87 @@ export function projectNational(br: Race, ufs: Race[]): Map<string, number> {
   return out;
 }
 
+// ---------- trend of the count ----------
+// The final share of a candidate is what they have now plus their share of the votes still to
+// be counted. We estimate that composition (r) and draw the path to 100% with
+//   share(q) = (votes_now + r * added(q)) / (valid_now + added(q)),
+// where added(q) grows linearly with the count. Sources for r:
+// - Brasil: the per-UF model (each state keeps voting as it has, weighted by what it still has);
+// - states and cities: the marginal share of the votes counted over the last ~15% of the count,
+//   which follows the changing profile of the ballot boxes coming in, shrunk toward the current
+//   share when that window is short.
+
+export type Remaining = { votes: number; shares: Map<string, number> };
+
+const MARGINAL_WINDOW = 15; // percentage points of the count
+const MARGINAL_FULL_WEIGHT = 10; // points of window needed to trust the marginal share fully
+
+function normalize(m: Map<string, number>) {
+  let total = 0;
+  for (const [id, v] of m) {
+    const clamped = Math.max(0, v);
+    m.set(id, clamped);
+    total += clamped;
+  }
+  if (total > 0) for (const [id, v] of m) m.set(id, v / total);
+  return m;
+}
+
+export function remainingVotes(race: Race, ufs?: Race[]): Remaining | null {
+  const { meta, data, history } = race;
+  const p = data.progress / 100;
+  const valid = validOf(data);
+  if (p <= 0 || p >= 1 || valid <= 0) return null;
+  const votes = (valid / p) * (1 - p);
+  const now = new Map(data.votes.map(([id, v]) => [id, v]));
+  const current = new Map(data.votes.map(([id, v]) => [id, v / valid]));
+
+  if (meta.abr === "br" && ufs && ufs.length > 0) {
+    const final = projectNational(race, ufs);
+    const shares = new Map<string, number>();
+    for (const [id, f] of final)
+      shares.set(id, ((f / 100) * (valid + votes) - (now.get(id) ?? 0)) / votes);
+    return { votes, shares: normalize(shares) };
+  }
+
+  // Latest history point at least MARGINAL_WINDOW points behind; else the earliest with votes.
+  const counted = history.filter((h) => h.valid > 0 && h.valid < valid);
+  const base =
+    [...counted].reverse().find((h) => h.progress <= data.progress - MARGINAL_WINDOW) ?? counted[0];
+  if (!base) return { votes, shares: current };
+  const dValid = valid - base.valid;
+  const weight = Math.min(1, (data.progress - base.progress) / MARGINAL_FULL_WEIGHT);
+  const shares = new Map<string, number>();
+  for (const [id, cur] of current) {
+    const before = base.votes[id];
+    const marginal = before === undefined ? cur : ((now.get(id) ?? 0) - before) / dValid;
+    shares.set(id, weight * marginal + (1 - weight) * cur);
+  }
+  return { votes, shares: normalize(shares) };
+}
+
+export type TrendPoint = { p: number; shares: Map<string, number> }; // shares in %
+
+export function trendPath(race: Race, ufs?: Race[], step = 2.5): TrendPoint[] {
+  const rem = remainingVotes(race, ufs);
+  if (!rem) return [];
+  const { data } = race;
+  const valid = validOf(data);
+  const start = data.progress;
+  const points: TrendPoint[] = [];
+  const marks = [start];
+  for (let q = Math.ceil(start / step) * step; q < 100; q += step) if (q > start) marks.push(q);
+  marks.push(100);
+  for (const q of marks) {
+    const added = rem.votes * ((q - start) / (100 - start));
+    const shares = new Map<string, number>();
+    for (const [id, v] of data.votes)
+      shares.set(id, ((v + (rem.shares.get(id) ?? 0) * added) / (valid + added)) * 100);
+    points.push({ p: q, shares });
+  }
+  return points;
+}
+
 function rngFrom(seed: number) {
   let a = seed;
   return () => {
@@ -125,8 +206,8 @@ export function trendsFor(race: Race, ufs?: Race[]): TrendSummary {
   const p = data.progress / 100;
   const seats = meta.seats;
   const nameOf = (id: string) => displayName(meta.candidates.find((c) => c.id === id)?.name ?? id);
-  const projectedById =
-    ufs && ufs.length > 0 && meta.abr === "br" ? projectNational(race, ufs) : null;
+  // Projection = where the trend line ends, so the table and the chart always agree.
+  const projectedById = trendPath(race, ufs).at(-1)?.shares ?? null;
 
   const past = history[Math.max(0, history.length - 6)];
   const items: Trend[] = meta.candidates.map((c) => {

@@ -7,6 +7,7 @@ import {
   distributeSeats,
   isProportional,
   qeInputFor,
+  trendPath,
   trendsFor,
   validOf,
   type Place,
@@ -124,7 +125,7 @@ export function CandidateDetail({ race, place, ufRaces, candidateId, onBack }: P
         </dl>
       </Section>
 
-      <Evolution history={history} candidateId={c.id} color={color} />
+      <Evolution race={race} ufRaces={ufRaces} candidateId={c.id} color={color} />
 
       {meta.abr === "br" && ufRaces.length > 0 && (
         <ByState ufRaces={ufRaces} candidateId={c.id} color={color} />
@@ -281,23 +282,49 @@ function Item({ label, value }: { label: string; value: string }) {
 }
 
 function Evolution({
-  history,
+  race,
+  ufRaces,
   candidateId,
   color,
 }: {
-  history: Race["history"];
+  race: Race;
+  ufRaces: Race[];
   candidateId: string;
   color: string;
 }) {
-  const points = history
+  const { history, data } = race;
+  const [showTrend, setShowTrend] = useState(false);
+  const canTrend = data.progress > 0 && data.progress < 100;
+  const real = history
     .filter((h) => h.valid > 0 && candidateId in h.votes)
     .map((h) => ({
       p: Math.round(h.progress * 10) / 10,
       v: ((h.votes[candidateId] ?? 0) / h.valid) * 100,
     }));
+  const trend =
+    showTrend && canTrend
+      ? trendPath(race, ufRaces).map((t) => ({
+          p: Math.round(t.p * 10) / 10,
+          t: t.shares.get(candidateId) ?? 0,
+        }))
+      : [];
+  const points = [...real, ...trend].sort((a, b) => a.p - b.p);
+  const final = trend.at(-1)?.t;
   return (
-    <Section title="Evolução por % apurado">
-      {points.length < 2 ? (
+    <div className="border-b border-border pb-3">
+      <div className="flex items-baseline justify-between px-3 pb-2 pt-3">
+        <h3 className="text-xs font-bold text-muted-foreground">Evolução por % apurado</h3>
+        {canTrend && real.length >= 2 && (
+          <button
+            onClick={() => setShowTrend((v) => !v)}
+            aria-pressed={showTrend}
+            className="text-[11px] font-semibold text-primary hover:underline"
+          >
+            {showTrend ? "Ocultar tendência" : "Mostrar tendência"}
+          </button>
+        )}
+      </div>
+      {real.length < 2 ? (
         <p className="px-3 text-xs text-muted-foreground">
           {history.some((h) => h.valid > 0)
             ? "Sem histórico suficiente para este candidato ainda."
@@ -332,19 +359,42 @@ function Evolution({
               borderRadius: 4,
             }}
             labelFormatter={(v) => `${v}% apurado`}
-            formatter={(v: number) => [`${pct(v)}%`, "Votos válidos"]}
+            formatter={(v: number, k: string) => [
+              `${pct(v)}%`,
+              k === "t" ? "Tendência" : "Votos válidos",
+            ]}
           />
           <Line
             dataKey="v"
             dot={false}
             isAnimationActive={false}
             type="monotone"
+            connectNulls
             strokeWidth={2}
             stroke={color}
           />
+          {showTrend && (
+            <Line
+              dataKey="t"
+              dot={false}
+              isAnimationActive={false}
+              type="monotone"
+              connectNulls
+              strokeWidth={1.75}
+              strokeDasharray="4 3"
+              stroke={color}
+            />
+          )}
         </LineChart>
       )}
-    </Section>
+      {showTrend && final !== undefined && (
+        <p className="px-3 pt-1 text-[11px] leading-snug text-muted-foreground">
+          Tracejado: tende a terminar com{" "}
+          <span className="tnum font-semibold text-foreground">{pct(final, 1)}%</span>, estimado
+          pelo jeito que os votos que faltam devem se dividir. É estimativa, não resultado.
+        </p>
+      )}
+    </div>
   );
 }
 

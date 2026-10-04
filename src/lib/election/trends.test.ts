@@ -1,7 +1,15 @@
 import { describe, expect, it } from "vitest";
 
 import { normalizeResult, type RawResult } from "../../../supabase/functions/_shared/tse";
-import { mathDecided, projectNational, roundShares, trendsFor, type Race } from "./trends";
+import {
+  mathDecided,
+  projectNational,
+  remainingVotes,
+  roundShares,
+  trendPath,
+  trendsFor,
+  type Race,
+} from "./trends";
 
 import brPres from "./__fixtures__/br-c0001-e006257-u.json";
 import spSen from "./__fixtures__/sp-c0005-e006259-u.json";
@@ -182,5 +190,68 @@ describe("roundShares", () => {
 
   it("keeps two-seat races at 200", () => {
     expect(roundShares([99.5, 60.5, 40]).reduce((a, b) => a + b, 0)).toBe(200);
+  });
+});
+
+describe("trendPath", () => {
+  // A has 50% with 40% counted, but only 40% of the votes counted since 20% (600 of 1000 then,
+  // 1000 of 2000 now). 3000 valid votes are left (2000 / 0.4 * 0.6), so A should end at
+  // (1000 + 0.4 * 3000) / (2000 + 3000) = 44%.
+  function counting(): Race {
+    const base = race("sp-c0003-e006259", spGovRaw);
+    const [a, b] = base.meta.candidates.map((c) => c.id);
+    const votes = (va: number, vb: number) => ({ [a!]: va, [b!]: vb });
+    return {
+      ...base,
+      data: {
+        ...base.data,
+        progress: 40,
+        valid: 2000,
+        votes: base.data.votes.map(([id, , st]): [string, number, string] => [
+          id,
+          id === a ? 1000 : id === b ? 1000 : 0,
+          st,
+        ]),
+      },
+      history: [
+        { sections: 1, progress: 20, tseAt: "", valid: 1000, votes: votes(600, 400) },
+        { sections: 2, progress: 40, tseAt: "", valid: 2000, votes: votes(1000, 1000) },
+      ],
+    };
+  }
+
+  it("uses the marginal share of the votes counted last", () => {
+    const r = counting();
+    const rem = remainingVotes(r)!;
+    expect(rem.votes).toBeCloseTo(3000, 5);
+    expect(rem.shares.get(r.meta.candidates[0]!.id)).toBeCloseTo(0.4, 5);
+  });
+
+  it("goes from the current share to the projection, smoothly", () => {
+    const r = counting();
+    const a = r.meta.candidates[0]!.id;
+    const path = trendPath(r);
+    expect(path[0]!.p).toBe(40);
+    expect(path[0]!.shares.get(a)).toBeCloseTo(50, 5);
+    expect(path.at(-1)!.p).toBe(100);
+    expect(path.at(-1)!.shares.get(a)).toBeCloseTo(44, 5);
+    for (let i = 1; i < path.length; i++)
+      expect(path[i]!.shares.get(a)!).toBeLessThanOrEqual(path[i - 1]!.shares.get(a)!);
+  });
+
+  it("makes the table's projection the end of the trend line", () => {
+    const r = counting();
+    const a = r.meta.candidates[0]!.id;
+    expect(trendsFor(r).items.find((t) => t.id === a)!.projected).toBeCloseTo(44, 5);
+  });
+
+  it("ends the Brasil trend at the per-UF projection", () => {
+    const br = race("br-c0001-e006257", brPres, {}, 50);
+    const [a, b] = [idOf(br, "LULA"), idOf(br, "FLAVIO BOLSONARO")];
+    const ufX = race("ba-c0001-e006257", brPres, { [a]: 700, [b]: 300 }, 50);
+    const ufY = race("sp-c0001-e006257", brPres, { [a]: 800, [b]: 1200 }, 100);
+    const nat = race("br-c0001-e006257", brPres, { [a]: 1500, [b]: 1500 }, 50);
+    const end = trendPath(nat, [ufX, ufY]).at(-1)!;
+    expect(end.shares.get(a)).toBeCloseTo(projectNational(nat, [ufX, ufY]).get(a)!, 1);
   });
 });

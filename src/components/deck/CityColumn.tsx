@@ -1,6 +1,7 @@
 import { Tip } from "./Tip";
 import { Quociente } from "./Quociente";
 import { CandidateDetail } from "./CandidateDetail";
+import { isTrendKey, mergeTrend, TREND_SUFFIX } from "./trend-chart";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ChevronLeft,
@@ -19,6 +20,7 @@ import {
   isProportional,
   officesFor,
   roundShares,
+  trendPath,
   turnoutPct,
   trendsFor,
   useColumn,
@@ -228,7 +230,7 @@ export function CityColumn({ place, onRemove, onMove, isFirst, isLast }: Props) 
               />
               {isDeputados(race) && <Quociente race={race} place={place} />}
               <Trends race={race} parties={parties} ufRaces={column.ufRaces} />
-              <Evolution race={race} parties={parties} />
+              <Evolution race={race} parties={parties} ufRaces={column.ufRaces} />
               {national && <States br={race} ufRaces={column.ufRaces} />}
               <Feed race={race} place={place} />
             </>
@@ -460,9 +462,22 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
   return <h3 className="px-3 pt-3 text-xs font-bold text-muted-foreground">{children}</h3>;
 }
 
-function Evolution({ race, parties }: { race: Race; parties: string[] }) {
+function TrendToggle({ on, onToggle }: { on: boolean; onToggle: () => void }) {
+  return (
+    <button
+      onClick={onToggle}
+      aria-pressed={on}
+      className="text-[11px] font-semibold text-primary hover:underline"
+    >
+      {on ? "Ocultar tendência" : "Mostrar tendência"}
+    </button>
+  );
+}
+
+function Evolution({ race, parties, ufRaces }: { race: Race; parties: string[]; ufRaces: Race[] }) {
   const { meta, data, history } = race;
   const isDep = isDeputados(race);
+  const [showTrend, setShowTrend] = useState(false);
   const ranked = [...meta.candidates].sort(
     (a, b) =>
       (data.votes.find((r) => r[0] === b.id)?.[1] ?? 0) -
@@ -471,20 +486,32 @@ function Evolution({ race, parties }: { race: Race; parties: string[] }) {
   const base = ranked.slice(0, isDep ? 4 : 5);
   const lines = parties.length ? base.filter((c) => parties.includes(c.party)) : base;
   const depColors = [1, 2, 3, 4];
-  const points = useMemo(
-    () =>
-      history
-        .filter((h) => h.valid > 0)
-        .map((h) => {
-          const row: Record<string, number> = { p: Math.round(h.progress * 10) / 10 };
-          for (const c of base) row[c.id] = ((h.votes[c.id] ?? 0) / h.valid) * 100;
-          return row;
-        }),
-    [history, base],
-  );
+  const canTrend = data.progress > 0 && data.progress < 100;
+  const points = useMemo(() => {
+    const rows = history
+      .filter((h) => h.valid > 0)
+      .map((h) => {
+        const row: Record<string, number> = { p: Math.round(h.progress * 10) / 10 };
+        for (const c of base) row[c.id] = ((h.votes[c.id] ?? 0) / h.valid) * 100;
+        return row;
+      });
+    if (!showTrend || !canTrend) return rows;
+    return mergeTrend(
+      rows,
+      trendPath(race, ufRaces),
+      base.map((c) => c.id),
+    );
+  }, [history, base, showTrend, canTrend, race, ufRaces]);
+  const colorOf = (id: string, i: number) =>
+    partyColor(isDep ? (depColors[i] ?? 1) : (race.colors[id] ?? 0));
   return (
     <div className="border-b border-border pb-2">
-      <SectionTitle>Evolução por % apurado</SectionTitle>
+      <div className="flex items-baseline justify-between pr-3">
+        <SectionTitle>Evolução por % apurado</SectionTitle>
+        {canTrend && history.length > 0 && (
+          <TrendToggle on={showTrend} onToggle={() => setShowTrend((v) => !v)} />
+        )}
+      </div>
       {points.length === 0 ? (
         <p className="px-3 py-3 text-xs text-muted-foreground">
           O gráfico começa com as primeiras seções totalizadas.
@@ -518,10 +545,11 @@ function Evolution({ race, parties }: { race: Race; parties: string[] }) {
               borderRadius: 4,
             }}
             labelFormatter={(v) => `${v}% apurado`}
-            formatter={(v: number, k: string) => [
-              `${pct(v)}%`,
-              displayName(meta.candidates.find((c) => c.id === k)?.name ?? k),
-            ]}
+            formatter={(v: number, k: string) => {
+              const id = isTrendKey(k) ? k.slice(0, -TREND_SUFFIX.length) : k;
+              const name = displayName(meta.candidates.find((c) => c.id === id)?.name ?? id);
+              return [`${pct(v)}%`, isTrendKey(k) ? `${name} (tendência)` : name];
+            }}
           />
           {lines.map((c, i) => (
             <Line
@@ -530,11 +558,32 @@ function Evolution({ race, parties }: { race: Race; parties: string[] }) {
               dot={false}
               isAnimationActive={false}
               type="monotone"
+              connectNulls
               strokeWidth={1.75}
-              stroke={partyColor(isDep ? (depColors[i] ?? 1) : (race.colors[c.id] ?? 0))}
+              stroke={colorOf(c.id, i)}
             />
           ))}
+          {showTrend &&
+            lines.map((c, i) => (
+              <Line
+                key={c.id + TREND_SUFFIX}
+                dataKey={c.id + TREND_SUFFIX}
+                dot={false}
+                isAnimationActive={false}
+                type="monotone"
+                connectNulls
+                strokeWidth={1.5}
+                strokeDasharray="4 3"
+                stroke={colorOf(c.id, i)}
+              />
+            ))}
         </LineChart>
+      )}
+      {showTrend && (
+        <p className="px-3 pt-1 text-[11px] leading-snug text-muted-foreground">
+          Tracejado: para onde cada um tende a ir até 100%, estimado pelo jeito que os votos que
+          faltam devem se dividir. É estimativa, não resultado.
+        </p>
       )}
     </div>
   );
