@@ -96,7 +96,10 @@ A versão de 2024 deste projeto errava a divisão em uma de cada três cidades.
 ### Evolução e atualizações
 
 O gráfico de evolução mostra a porcentagem de cada candidato conforme a contagem avança.
-Embaixo dele fica um resumo do que aconteceu: quando a apuração passou de 10%, 25%, 50% e assim por diante, e quando alguém passou outro candidato.
+Na coluna do Brasil ainda tem o mapa dos estados, pintado com a cor de quem tá na frente em cada um - quanto mais forte, mais apurado.
+Embaixo fica um resumo do que aconteceu: quando a apuração passou de 10%, 25%, 50% e assim por diante, e quando alguém passou outro candidato.
+
+<img src="docs/screenshots/evolucao.png" alt="Tendências, evolução e estados da disputa para Presidente" width="340">
 
 ### Modo claro e ao vivo
 
