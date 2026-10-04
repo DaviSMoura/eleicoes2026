@@ -279,3 +279,65 @@ export function createCityState(id: string, clock: number = SIM_START): CityStat
   s = { ...s, feed: s.feed.map((f) => (f.time === 0 ? { ...f, time: clock - Math.round(r() * Math.min(60, n * 2)) } : f)).sort((a, b) => b.time - a.time) };
   return s;
 }
+
+// ---------- tendências ----------
+export type Trend = {
+  id: string;
+  delta: number; // pontos percentuais vs ~5 atualizações atrás
+  projected: number; // % projetado ao final
+  margin: number; // ± p.p.
+  win: number; // 0..1 chance de terminar em 1º
+};
+export type TrendSummary = {
+  items: Trend[];
+  runoff: number; // chance de 2º turno (0 quando não se aplica)
+  runoffPair: [string, string] | null;
+  call: { kind: "vitoria" | "segundo-turno" | "indefinido"; text: string };
+};
+
+export function trendsFor(s: CityState, office: Office): TrendSummary {
+  const o = s.offices[office];
+  const p = s.progress / 100;
+  const h = o.history;
+  const past = h[Math.max(0, h.length - 6)];
+  const items: Trend[] = o.candidates.map((c, i) => {
+    const now = o.shares[i] * 100;
+    const projected = now * p + o.target[i] * 100 * (1 - p) * 0.6 + now * (1 - p) * 0.4;
+    return {
+      id: c.id,
+      delta: past ? now - (past[c.id] ?? now) : 0,
+      projected,
+      margin: Math.max(0.2, 7 * Math.pow(1 - p, 1.2)),
+      win: 0,
+    };
+  });
+  const r = rngFrom(hash(s.id + office) + Math.round(s.progress * 10));
+  const N = 400;
+  const wins = new Array(items.length).fill(0);
+  let runoff = 0;
+  const hasRunoff = office === "presidente" || office === "governador";
+  const real = items.filter((_, i) => o.candidates[i].name !== "Outros");
+  for (let k = 0; k < N; k++) {
+    const draw = items.map((t, i) => {
+      if (o.candidates[i].name === "Outros") return -1;
+      const g = (r() + r() + r() - 1.5) * 1.15; // ~normal
+      return Math.max(0, t.projected + g * t.margin);
+    });
+    const tot = draw.reduce((a, b) => a + Math.max(0, b), 0) + (items.find((_, i) => o.candidates[i].name === "Outros")?.projected ?? 0);
+    const w = argmax(draw);
+    wins[w]++;
+    if (hasRunoff && (draw[w] / tot) * 100 < 50) runoff++;
+  }
+  items.forEach((t, i) => (t.win = wins[i] / N));
+  const ranked = [...real].sort((a, b) => b.projected - a.projected);
+  const nameOf = (id: string) => o.candidates.find((c) => c.id === id)!.name;
+  const runoffP = hasRunoff ? runoff / N : 0;
+  const pair: [string, string] | null = hasRunoff && ranked[1] ? [ranked[0].id, ranked[1].id] : null;
+  const top = [...items].sort((a, b) => b.win - a.win)[0];
+  let call: TrendSummary["call"];
+  if (office === "deputados") call = { kind: "indefinido", text: "Ordem dos mais votados tende a se manter." };
+  else if (hasRunoff && runoffP >= 0.85 && pair) call = { kind: "segundo-turno", text: `Tendência de 2º turno: ${nameOf(pair[0])} × ${nameOf(pair[1])}` };
+  else if (top.win >= 0.9 && (!hasRunoff || runoffP < 0.15)) call = { kind: "vitoria", text: `Tendência de vitória de ${nameOf(top.id)}` };
+  else call = { kind: "indefinido", text: "Disputa indefinida — sem tendência clara ainda." };
+  return { items, runoff: runoffP, runoffPair: pair, call };
+}

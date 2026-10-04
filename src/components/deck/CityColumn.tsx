@@ -1,6 +1,6 @@
 import { Tip } from "./Tip";
 import { useEffect, useRef, useState } from "react";
-import { ChevronLeft, ChevronRight, X, MapPin } from "lucide-react";
+import { ChevronLeft, ChevronRight, X, MapPin, TrendingUp, TrendingDown } from "lucide-react";
 import { Line, LineChart, XAxis, YAxis, CartesianGrid, Tooltip } from "recharts";
 import {
   OFFICES,
@@ -10,6 +10,7 @@ import {
   validVotes,
   zoneLeader,
   zoneProgress,
+  trendsFor,
   type CityState,
   type Office,
 } from "@/lib/election/mock";
@@ -151,6 +152,7 @@ export function CityColumn({ state, onRemove, onMove, isFirst, isLast }: Props) 
 
       <div className="flex-1 overflow-y-auto">
         <Scoreboard state={state} office={office} parties={parties} />
+        <Trends state={state} office={office} parties={parties} />
         <Evolution state={state} office={office} parties={parties} />
         <Zones state={state} office={office} />
         <Feed state={state} />
@@ -170,6 +172,8 @@ function Scoreboard({ state, office, parties }: { state: CityState; office: Offi
   const filtered = parties.length ? rows.filter((r) => parties.includes(r.c.party)) : rows;
   const shown = isDep ? filtered.slice(0, 10) : filtered;
   const rankOf = (id: string) => rows.findIndex((r) => r.c.id === id);
+  const tr = trendsFor(state, office);
+  const deltaOf = (id: string) => tr.items.find((t) => t.id === id)?.delta ?? 0;
 
   return (
     <div className="border-b border-border">
@@ -195,8 +199,11 @@ function Scoreboard({ state, office, parties }: { state: CityState; office: Offi
                   {c.name}
                   {c.number && <span className="ml-1.5 text-xs font-normal text-muted-foreground">{c.party} · {c.number}</span>}
                 </span>
+                <span className="flex shrink-0 items-baseline gap-1.5">
+                <Delta d={deltaOf(c.id)} />
                 <span className={`tnum shrink-0 ${leader ? "text-[15px] font-bold" : "text-[13px] font-semibold"}`}>
                   <Num value={share * 100} format={(n) => pct(n)} />%
+                </span>
                 </span>
               </div>
               <div className="mt-1 flex items-center gap-2">
@@ -315,6 +322,75 @@ function Feed({ state }: { state: CityState }) {
           </li>
         ))}
       </ul>
+    </div>
+  );
+}
+
+function Delta({ d }: { d: number }) {
+  if (Math.abs(d) < 0.05) return <span className="tnum text-[10px] text-muted-foreground">=</span>;
+  const up = d > 0;
+  return (
+    <Tip label="Variação nas últimas atualizações">
+      <span className={`tnum inline-flex items-center gap-0.5 text-[10px] font-semibold ${up ? "text-[var(--party-4)]" : "text-destructive"}`}>
+        {up ? <TrendingUp className="size-3" /> : <TrendingDown className="size-3" />}
+        {up ? "+" : ""}
+        {pct(d, 1)}
+      </span>
+    </Tip>
+  );
+}
+
+function Trends({ state, office, parties }: { state: CityState; office: Office; parties: string[] }) {
+  const o = state.offices[office];
+  const tr = trendsFor(state, office);
+  const byId = new Map(tr.items.map((t) => [t.id, t]));
+  let list = o.candidates.filter((c) => c.name !== "Outros");
+  if (parties.length) list = list.filter((c) => parties.includes(c.party));
+  list = [...list].sort((a, b) => byId.get(b.id)!.projected - byId.get(a.id)!.projected).slice(0, office === "deputados" ? 5 : 4);
+  const tone = tr.call.kind === "vitoria" ? "border-primary bg-primary/10" : tr.call.kind === "segundo-turno" ? "border-[var(--party-4)] bg-[var(--party-4)]/10" : "border-border bg-muted/40";
+  return (
+    <div className="border-b border-border pb-3">
+      <SectionTitle>Tendências</SectionTitle>
+      <div key={tr.call.text} className={`animate-feed-in mx-3 mt-2 rounded-sm border px-2.5 py-1.5 text-[12px] font-semibold ${tone}`}>
+        {tr.call.text}
+      </div>
+      <div className="mt-2 space-y-1.5 px-3">
+        <div className="flex text-[10px] uppercase tracking-wide text-muted-foreground">
+          <span className="flex-1">Candidato</span>
+          <span className="w-[86px] text-right">Projeção final</span>
+          <span className="w-[52px] text-right">Chance</span>
+        </div>
+        {list.map((c) => {
+          const t = byId.get(c.id)!;
+          return (
+            <div key={c.id} className="flex items-center text-[12px]">
+              <span className="flex min-w-0 flex-1 items-center gap-1.5">
+                <span className="size-2 shrink-0 rounded-full" style={{ background: partyColor(c.color) }} />
+                <span className="truncate">{c.name}</span>
+              </span>
+              <Tip label={`Margem de ±${pct(t.margin, 1)} p.p., diminui conforme a apuração avança`}>
+                <span className="tnum w-[86px] text-right text-muted-foreground">
+                  {pct(t.projected, 1)}% <span className="text-[10px]">±{pct(t.margin, 1)}</span>
+                </span>
+              </Tip>
+              <span className="tnum w-[52px] text-right font-semibold">
+                <Num value={t.win * 100} format={(n) => (n > 99.4 ? ">99" : Math.round(n).toString())} />%
+              </span>
+            </div>
+          );
+        })}
+        {tr.runoffPair && (
+          <div className="pt-1">
+            <div className="flex justify-between text-[11px] text-muted-foreground">
+              <span>Chance de 2º turno</span>
+              <span className="tnum font-semibold text-foreground">{Math.round(tr.runoff * 100)}%</span>
+            </div>
+            <div className="mt-1 h-1 bg-muted">
+              <div className="h-full bg-[var(--party-4)] transition-[width] duration-700" style={{ width: `${tr.runoff * 100}%` }} />
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
