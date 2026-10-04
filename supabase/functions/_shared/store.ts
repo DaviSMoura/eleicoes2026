@@ -14,7 +14,7 @@ import {
 } from "./tse.ts";
 
 export const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
-const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+export const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
 export const db = createClient(SUPABASE_URL, SERVICE_KEY, {
   auth: { persistSession: false },
@@ -37,14 +37,25 @@ type PollerRow = {
   checked_at: string | null;
 };
 
+// Ids are long URLs: query in batches so the request URL stays well under gateway limits
+// (150+ watched races in one `in (...)` filter exceeded them on election night).
+const STATE_BATCH = 40;
+
 export async function getStates(ids: string[]): Promise<Map<string, PollerRow>> {
-  if (ids.length === 0) return new Map();
-  const { data, error } = await db
-    .from("poller_state")
-    .select("id, etag, summary, retry_after, checked_at")
-    .in("id", ids);
-  if (error) throw error;
-  return new Map((data as PollerRow[]).map((r) => [r.id, r]));
+  const out = new Map<string, PollerRow>();
+  const batches: string[][] = [];
+  for (let i = 0; i < ids.length; i += STATE_BATCH) batches.push(ids.slice(i, i + STATE_BATCH));
+  await Promise.all(
+    batches.map(async (batch) => {
+      const { data, error } = await db
+        .from("poller_state")
+        .select("id, etag, summary, retry_after, checked_at")
+        .in("id", batch);
+      if (error) throw error;
+      for (const r of data as PollerRow[]) out.set(r.id, r);
+    }),
+  );
+  return out;
 }
 
 export async function saveState(row: Partial<PollerRow> & { id: string }) {
