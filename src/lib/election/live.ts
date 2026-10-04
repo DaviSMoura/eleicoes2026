@@ -19,7 +19,7 @@ import { colorsFor } from "./colors";
 import type { HistoryPoint, Race } from "./trends";
 
 export type { HistoryPoint, Race, Trend, TrendPoint, TrendSummary } from "./trends";
-export { roundShares, trendPath, trendsFor, shareOf, validOf } from "./trends";
+export { pointValidOf, roundShares, trendPath, trendsFor, shareOf, validOf } from "./trends";
 export { distributeSeats, qeInputFor, quocienteEleitoral } from "./quociente";
 export type { QeResult, QeGroupResult } from "./quociente";
 

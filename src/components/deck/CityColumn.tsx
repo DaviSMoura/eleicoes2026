@@ -24,6 +24,7 @@ import {
   turnoutPct,
   trendsFor,
   useColumn,
+  pointValidOf,
   validOf,
   type Place,
   type Race,
@@ -491,8 +492,9 @@ function Evolution({ race, parties, ufRaces }: { race: Race; parties: string[]; 
     const rows = history
       .filter((h) => h.valid > 0)
       .map((h) => {
+        const valid = pointValidOf(h, data.blocked);
         const row: Record<string, number> = { p: Math.round(h.progress * 10) / 10 };
-        for (const c of base) row[c.id] = ((h.votes[c.id] ?? 0) / h.valid) * 100;
+        for (const c of base) row[c.id] = ((h.votes[c.id] ?? 0) / valid) * 100;
         return row;
       });
     if (!showTrend || !canTrend) return rows;
@@ -501,7 +503,7 @@ function Evolution({ race, parties, ufRaces }: { race: Race; parties: string[]; 
       trendPath(race, ufRaces),
       base.map((c) => c.id),
     );
-  }, [history, base, showTrend, canTrend, race, ufRaces]);
+  }, [history, base, showTrend, canTrend, race, ufRaces, data.blocked]);
   const colorOf = (id: string, i: number) =>
     partyColor(isDep ? (depColors[i] ?? 1) : (race.colors[id] ?? 0));
   return (
@@ -652,7 +654,7 @@ function feedFor(race: Race, place: Place): FeedItem[] {
     const prev = history[i - 1];
     const lead = leaderOf(h.votes);
     if (!lead || h.valid === 0) return;
-    const leadPct = pct((lead[1] / h.valid) * 100);
+    const leadPct = pct((lead[1] / pointValidOf(h, race.data.blocked)) * 100);
     for (const m of [10, 25, 50, 75, 90, 100]) {
       if ((prev?.progress ?? 0) < m && h.progress >= m) {
         items.push({

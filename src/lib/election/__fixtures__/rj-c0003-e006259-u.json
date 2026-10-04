@@ -1,0 +1,43 @@
+
+{ "ele" : "6259", "t" : "1", "f" : "o", "sup" : "n", "tpabr" : "uf", "cdabr" : "rj", "dg" : "04/10/2026", "hg" : "20:34:39", "idg" : "1768767", "dt" : "04/10/2026", "ht" : "20:34:21", "dv" : "s", "tf" : "n", "and" : "p", "md" : "n", "carg" : [ 
+{ "cd" : "3", "nmn" : "Governador", "nmm" : "Governador", "nmf" : "Governadora", "nv" : "1", "fed" : [ 
+{ "n" : "102", "sg" : "PSOL/REDE", "nm" : "FEDERAÇÃO PSOL REDE", "com" : "PSOL/REDE", "npar" : [ "18", "50" ] } ], "agr" : [ 
+{ "n" : "190001800632", "nm" : "RIO REAL", "tp" : "c", "com" : "PL / MOBILIZA / AGIR / AVANTE", "tvtn" : "3631147", "tvan" : "3631147", "par" : [ 
+{ "n" : "22", "sg" : "PL", "nm" : "PARTIDO LIBERAL", "nfed" : "", "tvtn" : "3631147", "tvan" : "3631147", "cand" : [ 
+{ "n" : "22", "sqcand" : "190002542887", "nm" : "DOUGLAS RUAS DOS SANTOS", "nmu" : "DOUGLAS RUAS", "dt" : "17/01/1989", "dvt" : "Válido", "seq" : "1", "e" : "n", "st" : "", "vap" : "3631147", "pvap" : "49,92", "pvapn" : "49,915205321", "vs" : [ 
+{ "tp" : "v", "sqcand" : "190002542886", "nm" : "FERNANDA ANCHIETA LOUBACK", "nmu" : "FERNANDA LOUBACK", "sgp" : "PL" } ] } ] } ] }, 
+{ "n" : "190001800365", "nm" : "PARTIDO NOVO", "tp" : "i", "com" : "NOVO", "vag" : "0", "par" : [ 
+{ "n" : "30", "sg" : "NOVO", "nm" : "PARTIDO NOVO", "nfed" : "", "tvtn" : "38992", "tvan" : "38992", "cand" : [ 
+{ "n" : "30", "sqcand" : "190002537524", "nm" : "ANDRÉ BOURGUIGNON MARINHO", "nmu" : "ANDRÉ MARINHO", "dt" : "10/08/1994", "dvt" : "Válido", "seq" : "6", "e" : "n", "st" : "", "vap" : "38992", "pvap" : "0,54", "pvapn" : "0,535999695", "vs" : [ 
+{ "tp" : "v", "sqcand" : "190002537523", "nm" : "ERIGREYCE DE ALCANTARA MONTEIRO", "nmu" : "TENENTE CORONEL ERIGREYCE", "sgp" : "NOVO" } ] } ] } ] }, 
+{ "n" : "190001801316", "nm" : "PARTIDO DA CAUSA OPERÁRIA", "tp" : "i", "com" : "PCO", "vag" : "0", "par" : [ 
+{ "n" : "29", "sg" : "PCO", "nm" : "PARTIDO DA CAUSA OPERÁRIA", "nfed" : "", "tvtn" : "2340", "tvan" : "2340", "cand" : [ 
+{ "n" : "29", "sqcand" : "190002552513", "nm" : "LUAN MONTEIRO PASCHOAL PIRES", "nmu" : "LUAN MONTEIRO", "dt" : "05/08/1996", "dvt" : "Válido", "seq" : "9", "e" : "n", "st" : "", "vap" : "2340", "pvap" : "0,03", "pvapn" : "0,032166580", "vs" : [ 
+{ "tp" : "v", "sqcand" : "190002552514", "nm" : "CAETANO ALBUQUERQUE SIGILIANO", "nmu" : "CAETANO ALBUQUERQUE", "sgp" : "PCO" } ] } ] } ] }, 
+{ "n" : "190001800636", "nm" : "JUNTOS PARA MUDAR CORAGEM PARA RECONSTRUIR", "tp" : "c", "com" : "PDT / MDB / DC / PSB / PSD / CIDADANIA / PSDB / PCDOB / PT / PV / PRD / SOLIDARIEDADE", "tvtn" : "3061725", "tvan" : "3061725", "par" : [ 
+{ "n" : "55", "sg" : "PSD", "nm" : "PARTIDO SOCIAL DEMOCRÁTICO", "nfed" : "", "tvtn" : "3061725", "tvan" : "3061725", "cand" : [ 
+{ "n" : "55", "sqcand" : "190002543380", "nm" : "EDUARDO DA COSTA PAES", "nmu" : "EDUARDO PAES", "dt" : "14/11/1969", "dvt" : "Válido", "seq" : "2", "e" : "n", "st" : "", "vap" : "3061725", "pvap" : "42,09", "pvapn" : "42,087701768", "vs" : [ 
+{ "tp" : "v", "sqcand" : "190002543379", "nm" : "JEANNIE MAYR REIS DE OLIVEIRA", "nmu" : "JANE REIS", "sgp" : "MDB" } ] } ] } ] }, 
+{ "n" : "190001800867", "nm" : "UNIDADE POPULAR", "tp" : "i", "com" : "UP", "vag" : "0", "par" : [ 
+{ "n" : "80", "sg" : "UP", "nm" : "UNIDADE POPULAR", "nfed" : "", "tvtn" : "28383", "tvan" : "28383", "cand" : [ 
+{ "n" : "80", "sqcand" : "190002547272", "nm" : "JULIETE PANTOJA ALVES", "nmu" : "JULIETE", "dt" : "15/10/1989", "dvt" : "Válido", "seq" : "7", "e" : "n", "st" : "", "vap" : "28383", "pvap" : "0,39", "pvapn" : "0,390164120", "vs" : [ 
+{ "tp" : "v", "sqcand" : "190002547273", "nm" : "MEIBY JEANINE MARTINS LIMA", "nmu" : "BIA MARTINS", "sgp" : "UP" } ] } ] } ] }, 
+{ "n" : "190001800282", "nm" : "FEDERAÇÃO PSOL REDE", "tp" : "f", "com" : "PSOL / REDE", "tvtn" : "197203", "tvan" : "197203", "vag" : "0", "par" : [ 
+{ "n" : "50", "sg" : "PSOL", "nm" : "PARTIDO SOCIALISMO E LIBERDADE", "nfed" : "102", "tvtn" : "197203", "tvan" : "197203", "cand" : [ 
+{ "n" : "50", "sqcand" : "190002536162", "nm" : "WILLIAM CARLOS BRUM BISPO", "nmu" : "WILLIAM SIRI", "dt" : "08/08/1992", "dvt" : "Válido", "seq" : "4", "e" : "n", "st" : "", "vap" : "197203", "pvap" : "2,71", "pvapn" : "2,710831656", "vs" : [ 
+{ "tp" : "v", "sqcand" : "190002536163", "nm" : "JULIANA PEREIRA DE CARVALHO", "nmu" : "JULIANA CARVALHO", "sgp" : "PSOL" } ] } ] } ] }, 
+{ "n" : "190001801094", "nm" : "CORAGEM PARA MUDAR", "tp" : "c", "com" : "REPUBLICANOS / DEMOCRATA", "tvtn" : "0", "tvan" : "231200", "par" : [ 
+{ "n" : "10", "sg" : "REPUBLICANOS", "nm" : "REPUBLICANOS", "nfed" : "", "tvtn" : "0", "tvan" : "231200", "cand" : [ 
+{ "n" : "10", "sqcand" : "190002550196", "nm" : "ANTHONY WILLIAM GAROTINHO MATHEUS DE OLIVEIRA", "nmu" : "GAROTINHO", "dt" : "18/04/1960", "dvt" : "Anulado sub judice", "seq" : "3", "e" : "n", "st" : "", "vap" : "231200", "pvap" : "3,18", "pvapn" : "3,178168075", "vs" : [ 
+{ "tp" : "v", "sqcand" : "190002554226", "nm" : "LUIZ ANDRE DE MOURA MONTEIRO", "nmu" : "ANDRÉ MONTEIRO", "sgp" : "DEMOCRATA" } ] } ] } ] }, 
+{ "n" : "190001800709", "nm" : "PARTIDO MISSÃO", "tp" : "i", "com" : "MISSÃO", "vag" : "0", "par" : [ 
+{ "n" : "14", "sg" : "MISSÃO", "nm" : "PARTIDO MISSÃO", "nfed" : "", "tvtn" : "71358", "tvan" : "71358", "cand" : [ 
+{ "n" : "14", "sqcand" : "190002544120", "nm" : "JOÃO JACQUES SOARES BUSNELLO", "nmu" : "CORONEL BUSNELLO", "dt" : "06/08/1970", "dvt" : "Válido", "seq" : "5", "e" : "n", "st" : "", "vap" : "71358", "pvap" : "0,98", "pvapn" : "0,980915733", "vs" : [ 
+{ "tp" : "v", "sqcand" : "190002544119", "nm" : "RAFAEL BARROS SILVA DA LUZ", "nmu" : "RAFA LUZ", "sgp" : "MISSÃO" } ] } ] } ] }, 
+{ "n" : "190001800425", "nm" : "PARTIDO SOCIALISTA  DOS TRABALHADORES UNIFICADO", "tp" : "i", "com" : "PSTU", "vag" : "0", "par" : [ 
+{ "n" : "16", "sg" : "PSTU", "nm" : "PARTIDO SOCIALISTA  DOS TRABALHADORES UNIFICADO", "nfed" : "", "tvtn" : "12283", "tvan" : "12283", "cand" : [ 
+{ "n" : "16", "sqcand" : "190002540198", "nm" : "CYRO GARCIA", "nmu" : "CYRO GARCIA", "dt" : "26/10/1954", "dvt" : "Válido", "seq" : "8", "e" : "n", "st" : "", "vap" : "12283", "pvap" : "0,17", "pvapn" : "0,168847052", "vs" : [ 
+{ "tp" : "v", "sqcand" : "190002540199", "nm" : "PERCILIANA COSTA RODRIGUES", "nmu" : "PERCILIANA", "sgp" : "PSTU" } ] } ] } ] } ] } ], "s" : 
+{ "ts" : "37675", "st" : "32167", "pst" : "85,38", "pstn" : "85,380225614", "snt" : "5508", "psnt" : "14,62", "psntn" : "14,619774386", "si" : "32167", "psi" : "100,00", "psin" : "100", "sni" : "0", "psni" : "0,00", "psnin" : "0", "sa" : "32167", "psa" : "100,00", "psan" : "100", "sna" : "0", "psna" : "0,00", "psnan" : "0" }, "e" : 
+{ "te" : "12842517", "est" : "10736313", "pest" : "83,60", "pestn" : "83,599756964", "esnt" : "2106204", "pesnt" : "16,40", "pesntn" : "16,400243036", "esi" : "10736313", "pesi" : "100,00", "pesin" : "100", "esni" : "0", "pesni" : "0,00", "pesnin" : "0", "esa" : "10736313", "pesa" : "100,00", "pesan" : "100", "esna" : "0", "pesna" : "0,00", "pesnan" : "0", "c" : "8258299", "pc" : "76,92", "pcn" : "76,919320441", "a" : "2478014", "pa" : "23,08", "pan" : "23,080679559" }, "v" : 
+{ "tv" : "8258299", "vvc" : "7274631", "pvvc" : "88,09", "pvvcn" : "88,088733527", "vv" : "7043431", "pvv" : "96,82", "pvvn" : "96,821831925", "vnom" : "7043431", "pvnom" : "100,00", "pvnomn" : "100", "van" : "0", "pvan" : "0,00", "pvann" : "0", "vansj" : "231200", "pvansj" : "3,18", "pvansjn" : "3,178168075", "vb" : "420530", "pvb" : "5,09", "pvbn" : "5,092210878", "tvn" : "563138", "ptvn" : "6,82", "ptvnn" : "6,819055595", "vn" : "563138", "pvn" : "100,00", "pvnn" : "100", "vnt" : "0", "pvnt" : "0,00", "pvntn" : "0", "vsan" : "0", "vscv" : "0" } }

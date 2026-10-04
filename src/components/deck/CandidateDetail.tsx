@@ -9,6 +9,7 @@ import {
   qeInputFor,
   trendPath,
   trendsFor,
+  pointValidOf,
   validOf,
   type Place,
   type Race,
@@ -299,7 +300,7 @@ function Evolution({
     .filter((h) => h.valid > 0 && candidateId in h.votes)
     .map((h) => ({
       p: Math.round(h.progress * 10) / 10,
-      v: ((h.votes[candidateId] ?? 0) / h.valid) * 100,
+      v: ((h.votes[candidateId] ?? 0) / pointValidOf(h, data.blocked)) * 100,
     }));
   const trend =
     showTrend && canTrend

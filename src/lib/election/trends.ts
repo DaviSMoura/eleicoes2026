@@ -37,8 +37,19 @@ export type TrendSummary = {
 const MAJORITARIAN = new Set([1, 3, 5]);
 const RUNOFF = new Set([1, 3]);
 
-export const validOf = (data: RaceData) =>
-  data.valid || data.votes.reduce((sum, [, v]) => sum + v, 0);
+// Base of every percentage, as the TSE publishes them ("votos válidos computados", vvc): the
+// valid votes plus those of candidates whose votes were annulled or are sub judice. Without it a
+// race with a sub judice candidate drifts from the TSE (RJ 2026: 51.58% here, 49.93% there) and
+// the shares add up to more than 100%. The quociente keeps the valid votes only (art. 106).
+export function validOf(data: RaceData) {
+  if (!data.valid) return data.votes.reduce((sum, [, v]) => sum + v, 0);
+  const blocked = new Set(data.blocked ?? []);
+  return data.votes.reduce((sum, [id, v]) => (blocked.has(id) ? sum + v : sum), data.valid);
+}
+
+// The same base for a history point, whose `valid` is the TSE's valid votes at that moment.
+export const pointValidOf = (h: HistoryPoint, blocked: readonly string[] | undefined) =>
+  h.valid > 0 ? (blocked ?? []).reduce((sum, id) => sum + (h.votes[id] ?? 0), h.valid) : 0;
 
 export function shareOf(data: RaceData, id: string) {
   const valid = validOf(data);
@@ -119,11 +130,12 @@ export function remainingVotes(race: Race, ufs?: Race[]): Remaining | null {
   }
 
   // Latest history point at least MARGINAL_WINDOW points behind; else the earliest with votes.
-  const counted = history.filter((h) => h.valid > 0 && h.valid < valid);
+  const baseOf = (h: HistoryPoint) => pointValidOf(h, data.blocked);
+  const counted = history.filter((h) => baseOf(h) > 0 && baseOf(h) < valid);
   const base =
     [...counted].reverse().find((h) => h.progress <= data.progress - MARGINAL_WINDOW) ?? counted[0];
   if (!base) return { votes, shares: current };
-  const dValid = valid - base.valid;
+  const dValid = valid - baseOf(base);
   const weight = Math.min(1, (data.progress - base.progress) / MARGINAL_FULL_WEIGHT);
   const shares = new Map<string, number>();
   for (const [id, cur] of current) {
@@ -210,10 +222,11 @@ export function trendsFor(race: Race, ufs?: Race[]): TrendSummary {
   const projectedById = trendPath(race, ufs).at(-1)?.shares ?? null;
 
   const past = history[Math.max(0, history.length - 6)];
+  const pastValid = past ? pointValidOf(past, data.blocked) : 0;
   const items: Trend[] = meta.candidates.map((c) => {
     const now = shareOf(data, c.id);
     const pastShare =
-      past && past.valid > 0 && c.id in past.votes ? (past.votes[c.id]! / past.valid) * 100 : now;
+      pastValid > 0 && c.id in past!.votes ? (past!.votes[c.id]! / pastValid) * 100 : now;
     return {
       id: c.id,
       delta: history.length > 1 ? now - pastShare : 0,

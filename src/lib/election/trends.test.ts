@@ -6,12 +6,16 @@ import {
   projectNational,
   remainingVotes,
   roundShares,
+  shareOf,
   trendPath,
   trendsFor,
+  validOf,
   type Race,
 } from "./trends";
 
 import brPres from "./__fixtures__/br-c0001-e006257-u.json";
+import rjDepFed from "./__fixtures__/rj-c0006-e006259-u.json";
+import rjGov from "./__fixtures__/rj-c0003-e006259-u.json";
 import spSen from "./__fixtures__/sp-c0005-e006259-u.json";
 import spGovRaw from "./__fixtures__/sp-c0003-e006259-u.json";
 import pref2024 from "./__fixtures__/sp71072-c0011-e000619-u.json";
@@ -254,4 +258,26 @@ describe("trendPath", () => {
     const end = trendPath(nat, [ufX, ufY]).at(-1)!;
     expect(end.shares.get(a)).toBeCloseTo(projectNational(nat, [ufX, ufY]).get(a)!, 1);
   });
+});
+
+describe("shares match the TSE", () => {
+  // RJ 2026: Garotinho is "Anulado sub judice", so the TSE's base is valid + his votes (vvc).
+  const cases = [
+    ["rj-c0003-e006259", rjGov],
+    ["rj-c0006-e006259", rjDepFed],
+  ] as const;
+  for (const [key, raw] of cases) {
+    it(`uses the TSE's base (votos válidos computados) in ${key}`, () => {
+      const { data } = normalizeResult(key, raw as unknown as RawResult);
+      expect(data.blocked.length).toBeGreaterThan(0);
+      const tse = raw as unknown as {
+        carg: { agr: { par: { cand: { sqcand: string; pvapn: string }[] }[] }[] }[];
+        v: { vvc: string };
+      };
+      expect(validOf(data)).toBe(Number(tse.v.vvc));
+      // pvapn is the exact share (pvap shows at least 0,01 for anyone with a vote).
+      for (const c of tse.carg[0]!.agr.flatMap((a) => a.par.flatMap((p) => p.cand)))
+        expect(shareOf(data, c.sqcand)).toBeCloseTo(Number(c.pvapn.replace(",", ".")), 6);
+    });
+  }
 });
