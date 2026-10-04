@@ -150,7 +150,17 @@ function MapSection({ byUf }: { byUf: Map<string, Race> }) {
   return (
     <div className="border-b border-border pb-3">
       <SectionTitle>Onde já foi apurado</SectionTitle>
-      <div className="relative px-3 pt-2">
+      <p className="h-5 px-3 pt-1 text-[11px]">
+        {hovered ? (
+          <>
+            <span className="font-semibold">{hovered.meta.abr.toUpperCase()}</span>{" "}
+            <span className="tnum">{pct(hovered.data.progress, 2)}% apurado</span>
+          </>
+        ) : (
+          <span className="text-muted-foreground">Passe o mouse num estado para ver o número</span>
+        )}
+      </p>
+      <div className="px-3 pt-1">
         <svg
           viewBox={BRAZIL_VIEWBOX}
           className="w-full"
@@ -176,16 +186,6 @@ function MapSection({ byUf }: { byUf: Map<string, Race> }) {
             );
           })}
         </svg>
-        <div className="pointer-events-none absolute left-3 top-2 rounded-sm bg-popover/90 px-2 py-1 text-[11px] shadow-sm">
-          {hovered ? (
-            <>
-              <span className="font-semibold">{hovered.meta.abr.toUpperCase()}</span>{" "}
-              <span className="tnum">{pct(hovered.data.progress, 2)}% apurado</span>
-            </>
-          ) : (
-            <span className="text-muted-foreground">Passe o mouse num estado</span>
-          )}
-        </div>
       </div>
       <div className="mt-2 flex items-center gap-2 px-3 text-[10px] text-muted-foreground">
         <span>0%</span>
