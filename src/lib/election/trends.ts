@@ -1,5 +1,6 @@
 // Trends over real TSE data: projection, chance of winning, runoff.
 import type { RaceData, RaceMeta } from "../../../supabase/functions/_shared/tse";
+import { displayName } from "./names";
 
 export type HistoryPoint = {
   sections: number;
@@ -96,7 +97,7 @@ export function trendsFor(race: Race, ufs?: Race[]): TrendSummary {
   const { meta, data, history } = race;
   const p = data.progress / 100;
   const seats = meta.seats;
-  const nameOf = (id: string) => meta.candidates.find((c) => c.id === id)?.name ?? id;
+  const nameOf = (id: string) => displayName(meta.candidates.find((c) => c.id === id)?.name ?? id);
   const projectedById =
     ufs && ufs.length > 0 && meta.abr === "br" ? projectNational(race, ufs) : null;
 

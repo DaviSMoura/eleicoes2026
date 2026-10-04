@@ -83,12 +83,18 @@
   --input: oklch(0.3 0.018 250);
   --ring: oklch(0.67 0.15 240);
   --party-0: oklch(0.55 0.015 250);
-  --party-1: oklch(0.63 0.19 27);
-  --party-2: oklch(0.63 0.14 248);
-  --party-3: oklch(0.8 0.14 88);
-  --party-4: oklch(0.66 0.14 155);
-  --party-5: oklch(0.72 0.15 55);
-  --party-6: oklch(0.62 0.14 305);
+  /* Party colors, validated with the dataviz palette checks (lightness band, chroma, color
+     vision deficiency separation) against each theme's surface. Dark values here, light below. */
+  --party-1: oklch(0.62 0.19 27); /* red */
+  --party-2: oklch(0.6 0.15 255); /* blue */
+  --party-3: oklch(0.655 0.14 88); /* yellow */
+  --party-4: oklch(0.6 0.15 148); /* green */
+  --party-5: oklch(0.66 0.15 55); /* orange */
+  --party-6: oklch(0.58 0.17 300); /* purple */
+  --party-7: oklch(0.66 0.18 352); /* pink */
+  --party-8: oklch(0.64 0.12 218); /* cyan */
+  --party-9: oklch(0.52 0.11 50); /* brown */
+  --party-10: oklch(0.56 0.11 168); /* teal */
   --chart-1: var(--party-1);
   --chart-2: var(--party-2);
   --chart-3: var(--party-3);
@@ -123,6 +129,12 @@
   --border: oklch(0.89 0.008 250);
   --input: oklch(0.86 0.008 250);
   --party-0: oklch(0.62 0.015 250);
+  --party-2: oklch(0.58 0.15 255);
+  --party-3: oklch(0.76 0.15 88);
+  --party-5: oklch(0.7 0.15 55);
+  --party-6: oklch(0.56 0.17 300);
+  --party-8: oklch(0.68 0.12 218);
+  --party-9: oklch(0.5 0.11 50);
   --sidebar: oklch(0.985 0.002 250);
   --sidebar-foreground: oklch(0.2 0.02 250);
   --sidebar-accent: oklch(0.93 0.006 250);

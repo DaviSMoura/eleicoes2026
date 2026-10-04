@@ -14,6 +14,7 @@ import {
   type RaceData,
   type RaceMeta,
 } from "../../../supabase/functions/_shared/tse";
+import { colorsFor } from "./colors";
 import type { HistoryPoint, Race } from "./trends";
 
 export type { HistoryPoint, Race, Trend, TrendSummary } from "./trends";
@@ -74,22 +75,7 @@ const NATIONAL_UF_KEYS = [...UFS, "zz"].map((uf) => keyFor(uf, CARGO.presidente)
 export const isProportional = (cargo: number) =>
   cargo === CARGO.depFederal || cargo === CARGO.depEstadual || cargo === CARGO.depDistrital;
 
-const LOWER_WORDS = new Set(["de", "da", "do", "das", "dos", "e"]);
-
-// TSE names come in upper case ("FLAVIO BOLSONARO"); show them like people write them.
-export const displayName = (name: string) =>
-  name
-    .split(" ")
-    .map((w, i) => {
-      if (/^[IVX]+$/.test(w) && i > 0) return w;
-      const lower = w.toLowerCase();
-      if (i > 0 && LOWER_WORDS.has(lower)) return lower;
-      return lower
-        .split("-")
-        .map((p) => p.charAt(0).toUpperCase() + p.slice(1))
-        .join("-");
-    })
-    .join(" ");
+export { displayName } from "./names";
 
 const timeFmt = new Intl.DateTimeFormat("pt-BR", {
   hour: "2-digit",
@@ -172,7 +158,7 @@ function applyUpdate(u: Update) {
     historyWanted.has(u.key) && u.data.sections > (last?.sections ?? -1)
       ? [...cur.history, pointFrom(u.data)]
       : cur.history;
-  races.set(u.key, { ...cur, data: u.data, colors: u.colors, history });
+  races.set(u.key, { ...cur, data: u.data, history });
   emit();
 }
 
@@ -237,7 +223,7 @@ async function watch(keys: string[], withHistory: boolean, lite = false) {
       const race: Race = {
         meta,
         data: prev && prev.data.sections > row.data.sections ? prev.data : row.data,
-        colors: row.colors ?? prev?.colors ?? {},
+        colors: colorsFor(meta),
         history: rows ? rows.map(toPoint) : (prev?.history ?? []),
       };
       races.set(key, race);
@@ -303,7 +289,7 @@ function retain(keys: string[], history: string[], topics: string[]) {
   for (const k of fresh) {
     const cached = races.has(k) ? undefined : readCache(k);
     if (cached) {
-      races.set(k, cached);
+      races.set(k, { ...cached, colors: colorsFor(cached.meta) });
       hydrated = true;
     }
   }

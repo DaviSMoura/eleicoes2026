@@ -68,7 +68,7 @@ describe("trendsFor", () => {
     const tr = trendsFor({ meta: { ...meta, cargo: 3 }, data, colors: {}, history: [] });
     expect(tr.call).toEqual({
       kind: "segundo-turno",
-      text: "2º turno: GUILHERME BOULOS × RICARDO NUNES",
+      text: "2º turno: Guilherme Boulos × Ricardo Nunes",
     });
   });
 });
