@@ -298,6 +298,8 @@ export const STATE_RACE_TOPICS: Record<number, string> = {
   [CARGO.governador]: "gov-uf",
   [CARGO.senador]: "sen-uf",
   [CARGO.depFederal]: "fed-uf",
+  [CARGO.depEstadual]: "est-uf",
+  [CARGO.depDistrital]: "est-uf", // DF has distritais instead of estaduais
 };
 export const placeTopic = (abr: string) => `abr:${abr}`;
 
