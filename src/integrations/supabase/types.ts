@@ -14,13 +14,145 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      poller_state: {
+        Row: {
+          checked_at: string | null
+          etag: string | null
+          id: string
+          last_run_at: string
+          locked_until: string
+          retry_after: string | null
+          summary: Json | null
+        }
+        Insert: {
+          checked_at?: string | null
+          etag?: string | null
+          id: string
+          last_run_at?: string
+          locked_until?: string
+          retry_after?: string | null
+          summary?: Json | null
+        }
+        Update: {
+          checked_at?: string | null
+          etag?: string | null
+          id?: string
+          last_run_at?: string
+          locked_until?: string
+          retry_after?: string | null
+          summary?: Json | null
+        }
+        Relationships: []
+      }
+      results_history: {
+        Row: {
+          created_at: string
+          id: number
+          key: string
+          progress: number
+          sections: number
+          tse_at: string | null
+          valid: number
+          votes: Json
+        }
+        Insert: {
+          created_at?: string
+          id?: number
+          key: string
+          progress: number
+          sections: number
+          tse_at?: string | null
+          valid: number
+          votes: Json
+        }
+        Update: {
+          created_at?: string
+          id?: number
+          key?: string
+          progress?: number
+          sections?: number
+          tse_at?: string | null
+          valid?: number
+          votes?: Json
+        }
+        Relationships: []
+      }
+      results_latest: {
+        Row: {
+          abr: string
+          cargo: number
+          colors: Json
+          colors_frozen: boolean
+          data: Json
+          ele: string
+          idg: string
+          key: string
+          meta: Json
+          progress: number
+          seats: number
+          sections: number
+          tse_at: string | null
+          uf: string
+          updated_at: string
+        }
+        Insert: {
+          abr: string
+          cargo: number
+          colors?: Json
+          colors_frozen?: boolean
+          data: Json
+          ele: string
+          idg: string
+          key: string
+          meta: Json
+          progress: number
+          seats: number
+          sections: number
+          tse_at?: string | null
+          uf: string
+          updated_at?: string
+        }
+        Update: {
+          abr?: string
+          cargo?: number
+          colors?: Json
+          colors_frozen?: boolean
+          data?: Json
+          ele?: string
+          idg?: string
+          key?: string
+          meta?: Json
+          progress?: number
+          seats?: number
+          sections?: number
+          tse_at?: string | null
+          uf?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      watch: {
+        Row: {
+          key: string
+          last_seen_at: string
+        }
+        Insert: {
+          key: string
+          last_seen_at?: string
+        }
+        Update: {
+          key?: string
+          last_seen_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      poller_try_lock: { Args: never; Returns: boolean }
+      poller_unlock: { Args: never; Returns: undefined }
     }
     Enums: {
       [_ in never]: never

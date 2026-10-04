@@ -30,3 +30,10 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Playwright MCP artifacts
+.playwright-mcp/
+
+# Local tool artifacts
+deno.lock
+supabase/.temp/

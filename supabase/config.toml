@@ -1,1 +1,7 @@
 project_id = "cyvszcfumuctbfzxqsgv"
+
+[functions.poll-tse]
+verify_jwt = false
+
+[functions.watch]
+verify_jwt = false
