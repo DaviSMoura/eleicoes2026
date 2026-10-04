@@ -8,3 +8,5 @@
 > Commits you push to the connected branch sync back to Lovable and show up in
 > the editor, so keep the branch in a working state.
 <!-- LOVABLE:END -->
+
+- Election data lives behind `src/lib/election/mock.ts` (types + createCityState/tickCity); UI imports only from there so the real data source can replace the mock without touching components.
