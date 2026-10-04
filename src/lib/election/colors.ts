@@ -26,6 +26,7 @@ const PARTY_COLORS: [party: string, slots: number[]][] = [
   ["AVANTE", [10, 8]],
   ["PC do B", [1, 7]],
   ["PCdoB", [1, 7]],
+  ["PCDOB", [1, 7]], // how the TSE spells it in 2026
   ["PV", [4, 10]],
   ["REDE", [10, 4]],
   ["SOLIDARIEDADE", [5, 3]],

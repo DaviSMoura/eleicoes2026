@@ -1,7 +1,10 @@
 import { useMemo, useState, type ReactNode } from "react";
 import { Activity, ChevronLeft, ChevronRight, X } from "lucide-react";
 import {
+  chamberSeats,
   colorsForParties,
+  senateSeats,
+  useCamaraRaces,
   fmtFull,
   isSettled,
   raceStatus,
@@ -13,6 +16,7 @@ import {
   type RaceStatus,
 } from "@/lib/election/live";
 import { BRAZIL_CENTROIDS, BRAZIL_PATHS, BRAZIL_VIEWBOX } from "./brazil-map.gen";
+import { PartyPie } from "./PartyPie";
 import { Tip } from "./Tip";
 
 const nf = new Intl.NumberFormat("pt-BR");
@@ -40,12 +44,13 @@ const REGIONS: { name: string; ufs: string[] }[] = [
   { name: "Sul", ufs: ["pr", "rs", "sc"] },
 ];
 
-type View = "apuracao" | "presidente" | "governador" | "senador";
+type View = "apuracao" | "presidente" | "governador" | "senador" | "camara";
 const VIEWS: { id: View; label: string }[] = [
   { id: "apuracao", label: "Apuração" },
   { id: "presidente", label: "Presidente" },
   { id: "governador", label: "Governador" },
   { id: "senador", label: "Senador" },
+  { id: "camara", label: "Câmara" },
 ];
 
 type Props = {
@@ -148,8 +153,10 @@ export function StatusColumn({ onRemove, onMove, isFirst, isLast }: Props) {
           <OfficeView races={st.pres} national={{ br, ufs: presUfs }} office="Presidente" />
         ) : view === "governador" ? (
           <OfficeView races={st.gov} office="Governador" />
-        ) : (
+        ) : view === "senador" ? (
           <OfficeView races={st.sen} office="Senador" />
+        ) : (
+          <CamaraView />
         )}
       </div>
     </section>
@@ -430,6 +437,8 @@ function OfficeView({
         </p>
       </div>
 
+      {office === "Senador" && <SenadoSeats races={races} />}
+
       <div className="pb-3">
         <SectionTitle>Estado por estado</SectionTitle>
         <div className="mt-2 space-y-1.5 px-3">
@@ -439,6 +448,64 @@ function OfficeView({
               <StateRow key={uf} uf={uf} status={s} office={office} />
             ))}
         </div>
+      </div>
+    </>
+  );
+}
+
+// The 54 seats in play (two per state) by party, as if the count ended now.
+function SenadoSeats({ races }: { races: Map<string, Race> }) {
+  const chamber = useMemo(() => senateSeats([...races.values()]), [races]);
+  return (
+    <div className="border-b border-border pb-3">
+      <SectionTitle>Vagas por partido</SectionTitle>
+      <PartyPie chamber={chamber} label="vagas" />
+      <p className="mt-2 px-3 text-[10px] text-muted-foreground">
+        Os dois mais votados de cada estado, como se a apuração acabasse agora. {chamber.settled} de{" "}
+        {chamber.seats} já estão definidas. Em 2026 o Senado renova 54 das 81 cadeiras.
+      </p>
+    </div>
+  );
+}
+
+// The 513 seats of the Câmara by party: the quociente simulation of each state while it counts,
+// the TSE's elected once it is final.
+function CamaraView() {
+  const races = useCamaraRaces();
+  const chamber = useMemo(() => chamberSeats(races), [races]);
+  const counted = races.filter((r) => r.data.progress > 0);
+  const final = races.filter((r) => r.data.progress >= 100).length;
+  const progress =
+    counted.length > 0 ? counted.reduce((n, r) => n + r.data.progress, 0) / races.length : 0;
+  if (races.length < 27)
+    return (
+      <p className="px-3 py-6 text-center text-xs text-muted-foreground">
+        Carregando os deputados federais dos 27 estados...
+      </p>
+    );
+  return (
+    <>
+      <div className="border-b border-border px-3 pb-3 pt-3 text-[12px]">
+        <span className="tnum font-bold">{chamber.seats}</span>{" "}
+        <span className="text-muted-foreground">deputados federais</span>
+        {final > 0 && (
+          <>
+            {" "}
+            <span className="tnum font-bold">{final}</span>{" "}
+            <span className="text-muted-foreground">
+              {final === 1 ? "estado com resultado oficial" : "estados com resultado oficial"}
+            </span>
+          </>
+        )}
+      </div>
+      <div className="pb-3">
+        <SectionTitle>Vagas por partido</SectionTitle>
+        <PartyPie chamber={chamber} label="deputados" />
+        <p className="mt-2 px-3 text-[10px] text-muted-foreground">
+          Simulação do quociente eleitoral em cada estado com os votos já apurados (média de{" "}
+          {pct(progress)}% das seções). Muda conforme a apuração avança e não substitui o resultado
+          oficial do TSE.
+        </p>
       </div>
     </>
   );

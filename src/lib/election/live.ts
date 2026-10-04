@@ -510,6 +510,24 @@ export function useStatusRaces(): StatusRaces {
   );
 }
 
+// Câmara: the Dep. Federal of every state, loaded only while the Câmara view is open (the 27
+// candidate lists weigh ~400KB gzipped).
+const CAMARA_KEYS = UFS.map((uf) => keyFor(uf, CARGO.depFederal));
+const CAMARA_TOPICS = [STATE_RACE_TOPICS[CARGO.depFederal]!];
+
+export function useCamaraRaces(): Race[] {
+  useEffect(() => {
+    retain(CAMARA_KEYS, [], CAMARA_TOPICS);
+    return () => release(CAMARA_KEYS, CAMARA_TOPICS);
+  }, []);
+  const v = useSyncExternalStore(subscribeStore, getVersion, getVersion);
+  return useMemo(
+    () => CAMARA_KEYS.flatMap((k) => races.get(k) ?? []),
+    [v], // eslint-disable-line react-hooks/exhaustive-deps
+  );
+}
+
+export { chamberSeats, senateSeats, type Chamber, type PartySeats } from "./congress";
 export { raceStatus, STATE_LABEL, isSettled, type RaceState, type RaceStatus } from "./status";
 
 export function useLiveStatus() {
