@@ -206,14 +206,21 @@ function writeCache(key: string, race: Race) {
   }
 }
 
-async function watch(keys: string[], withHistory: boolean) {
+// Races whose candidate list (meta) came from the server in this session. Only these are sent
+// as `have`, so the server skips their meta; metas restored from the local cache may be from an
+// older format and are fetched once more.
+const metaConfirmed = new Set<string>();
+
+// `lite` only keeps the races watched for the poller (the heartbeat while Realtime is up).
+async function watch(keys: string[], withHistory: boolean, lite = false) {
   for (let i = 0; i < keys.length; i += 40) {
     const chunk = keys.slice(i, i + 40);
     const history = withHistory ? chunk.filter((k) => historyWanted.has(k)) : [];
+    const have = chunk.filter((k) => metaConfirmed.has(k) && races.has(k));
     const { data, error } = await supabase.functions.invoke<{
-      races: Record<string, LatestRow>;
+      races: Record<string, Partial<LatestRow> & { key: string }>;
       history: Record<string, HistoryRow[]>;
-    }>("watch", { body: { keys: chunk, history } });
+    }>("watch", { body: { keys: chunk, history, have, lite } });
     if (error || !data) {
       status = { ...status, error: error?.message ?? "Falha ao carregar" };
       emit();
@@ -221,13 +228,16 @@ async function watch(keys: string[], withHistory: boolean) {
     }
     for (const key of chunk) {
       const row = data.races[key];
-      if (!row) continue;
+      if (!row?.data) continue;
       const prev = races.get(key);
+      const meta = row.meta ?? prev?.meta;
+      if (!meta) continue;
+      if (row.meta) metaConfirmed.add(key);
       const rows = data.history[key];
       const race: Race = {
-        meta: row.meta,
+        meta,
         data: prev && prev.data.sections > row.data.sections ? prev.data : row.data,
-        colors: row.colors,
+        colors: row.colors ?? prev?.colors ?? {},
         history: rows ? rows.map(toPoint) : (prev?.history ?? []),
       };
       races.set(key, race);
@@ -333,6 +343,7 @@ function release(keys: string[], topics: string[]) {
       if (refs.has(k)) continue;
       lingering.delete(k);
       historyWanted.delete(k);
+      metaConfirmed.delete(k);
       races.delete(k);
     }
     for (const t of topics) {
@@ -349,7 +360,8 @@ function release(keys: string[], topics: string[]) {
 if (typeof window !== "undefined") {
   setInterval(() => {
     const keys = [...refs.keys()];
-    if (keys.length) void watch(keys, false).catch(() => undefined);
+    // While Realtime is up, updates arrive by push: the heartbeat only keeps races watched.
+    if (keys.length) void watch(keys, false, status.live).catch(() => undefined);
   }, 60_000);
   document.addEventListener("visibilitychange", () => {
     const keys = [...refs.keys()];
