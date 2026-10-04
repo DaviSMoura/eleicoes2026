@@ -38,6 +38,8 @@ A coluna do Brasil só tem Presidente, porque é o único cargo votado no país 
 
 Pra cada candidato aparece a foto, o partido, o número, a porcentagem dos votos válidos e o total de votos.
 A setinha verde ou vermelha mostra se ele subiu ou caiu nas últimas atualizações.
+A cor segue o partido, do jeito que todo mundo reconhece: PT vermelho, PL azul, Missão amarelo, NOVO laranja.
+Ela não muda quando alguém passa outro candidato.
 
 - **Filtro por partido:** os botões logo acima da lista mostram só os candidatos daqueles partidos.
 - **Busca:** dá pra procurar por nome, número ou partido, sem se preocupar com acento.
@@ -66,6 +68,15 @@ Com uma parte das urnas contadas, a gente estima onde cada um deve terminar.
 
 Isso é estatística, não resultado.
 Quando o TSE marca alguém como eleito ou como indo pro 2º turno, o site para de estimar e mostra o que o TSE disse.
+
+Tem um caso em que dá pra cravar antes do TSE: quando nem todos os votos que faltam apurar mudam o resultado.
+A conta é pelo pior cenário: todo mundo das seções que faltam vai votar, e vota no adversário.
+Se mesmo assim o líder continua com mais da metade dos votos válidos, ele já tá eleito, e o site mostra isso.
+No Senado é igual: o candidato tá eleito se continua na frente do primeiro que tá fora das vagas, mesmo que esse leve todos os votos restantes.
+Isso só vale onde a eleição acontece de verdade - Presidente no Brasil, Governador e Senador no estado.
+Ganhar o Presidente num estado não elege ninguém.
+
+<img src="docs/screenshots/eleito.png" alt="Governador de Mato Grosso do Sul já matematicamente eleito" width="340">
 
 ### Quociente eleitoral
 
