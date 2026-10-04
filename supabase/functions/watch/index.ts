@@ -17,8 +17,15 @@ Deno.serve(async (req) => {
 
   let keys: string[];
   let historyFor: string[];
+  let have: Set<string>;
+  let lite: boolean;
   try {
-    const body = (await req.json()) as { keys?: unknown; history?: unknown };
+    const body = (await req.json()) as {
+      keys?: unknown;
+      history?: unknown;
+      have?: unknown;
+      lite?: unknown;
+    };
     keys = Array.isArray(body.keys)
       ? body.keys.filter((k): k is string => typeof k === "string")
       : [];
@@ -28,16 +35,40 @@ Deno.serve(async (req) => {
     keys = [...new Set(keys)].slice(0, MAX_KEYS);
     keys.forEach(parseKey);
     historyFor = historyFor.filter((k) => keys.includes(k));
+    have = new Set(
+      Array.isArray(body.have) ? body.have.filter((k): k is string => typeof k === "string") : [],
+    );
+    // Heartbeats only keep races watched. Tabs still on the previous client send them without
+    // `have` and without history; treat those as lite too, so they stop pulling whole rows.
+    lite = body.lite === true || (body.have === undefined && historyFor.length === 0);
   } catch {
     return json({ error: "invalid body" }, 400);
   }
   if (keys.length === 0) return json({ races: {}, history: {} });
 
-  // One round trip: the function and the database are in different regions.
   const now = new Date().toISOString();
-  const [watchRes, latestRes, historyRes] = await Promise.all([
+  if (lite) {
+    const { error } = await db
+      .from("watch")
+      .upsert(keys.map((key) => ({ key, last_seen_at: now })));
+    if (error) return json({ error: error.message }, 500);
+    return json({ races: {}, history: {} });
+  }
+
+  // The candidate list (meta) is static and large (hundreds of KB for deputados): only send it
+  // for races the browser does not have yet.
+  const withMeta = keys.filter((k) => !have.has(k));
+  const withoutMeta = keys.filter((k) => have.has(k));
+  const none = Promise.resolve({ data: [], error: null });
+  // One round trip: the function and the database are in different regions.
+  const [watchRes, metaRes, dataRes, historyRes] = await Promise.all([
     db.from("watch").upsert(keys.map((key) => ({ key, last_seen_at: now }))),
-    db.from("results_latest").select("key, meta, data, colors").in("key", keys),
+    withMeta.length
+      ? db.from("results_latest").select("key, meta, data, colors").in("key", withMeta)
+      : none,
+    withoutMeta.length
+      ? db.from("results_latest").select("key, data, colors").in("key", withoutMeta)
+      : none,
     historyFor.length > 0
       ? db
           .from("results_history")
@@ -46,11 +77,12 @@ Deno.serve(async (req) => {
           .order("sections", { ascending: true })
       : Promise.resolve({ data: [], error: null }),
   ]);
-  const failed = watchRes.error ?? latestRes.error ?? historyRes.error;
+  const failed = watchRes.error ?? metaRes.error ?? dataRes.error ?? historyRes.error;
   if (failed) return json({ error: failed.message }, 500);
 
-  const races: Record<string, LatestOut> = {};
-  for (const r of (latestRes.data ?? []) as LatestOut[]) races[r.key] = r;
+  const races: Record<string, Partial<LatestOut> & { key: string }> = {};
+  for (const r of [...(metaRes.data ?? []), ...(dataRes.data ?? [])] as LatestOut[])
+    races[r.key] = r;
 
   // First viewer of a race: fetch it from the TSE now and answer with what was stored.
   const missing = keys.filter((k) => !races[k]);
