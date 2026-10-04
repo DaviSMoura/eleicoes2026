@@ -19,6 +19,7 @@ import {
 } from "../../../supabase/functions/_shared/tse";
 
 import brPres from "./__fixtures__/br-c0001-e006257-u.json";
+import rjGov from "./__fixtures__/rj-c0003-e006259-u.json";
 import spGov from "./__fixtures__/sp-c0003-e006259-u.json";
 import spSen from "./__fixtures__/sp-c0005-e006259-u.json";
 import capDepFed from "./__fixtures__/sp71072-c0006-e006259-u.json";
@@ -197,5 +198,12 @@ describe("assignColors", () => {
     expect(colors[flavio.id]).toBe(1);
     expect(colors[lula.id]).toBe(2);
     expect(Object.values(colors).filter((c) => c === 0)).toHaveLength(12 - 6);
+  });
+});
+
+describe("voteStatus", () => {
+  it("keeps the TSE's reason for votes that are not valid", () => {
+    const { data } = normalizeResult("rj-c0003-e006259", rjGov as unknown as RawResult);
+    expect(data.voteStatus).toEqual([[data.blocked[0], "Anulado sub judice"]]);
   });
 });

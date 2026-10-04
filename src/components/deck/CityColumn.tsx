@@ -1,4 +1,5 @@
 import { Tip } from "./Tip";
+import { VoteStatusBadge } from "./VoteStatusBadge";
 import { Quociente } from "./Quociente";
 import { CandidateDetail } from "./CandidateDetail";
 import { isTrendKey, mergeTrend, TREND_SUFFIX } from "./trend-chart";
@@ -26,6 +27,7 @@ import {
   useColumn,
   pointValidOf,
   validOf,
+  voteStatusOf,
   type Place,
   type Race,
 } from "@/lib/election/live";
@@ -421,6 +423,7 @@ function Scoreboard({
                   />
                 </div>
                 <StatusBadge status={status} decided={tr.decided.includes(c.id)} />
+                <VoteStatusBadge status={voteStatusOf(data, c.id)} />
                 <Delta d={deltaOf(c.id)} />
                 <span className="tnum w-[76px] text-right text-[11px] text-muted-foreground">
                   <Num value={votes} format={(n) => nf.format(Math.round(n))} />

@@ -189,6 +189,9 @@ export type RaceData = {
   groupVotes: [group: string, votes: number][];
   // Candidates whose votes cannot elect them (annulled, or counted for the party only).
   blocked: string[];
+  // Why, as the TSE says it (dvt), e.g. "Anulado sub judice" or "Anulado". Missing in rows
+  // written before NORMALIZE_VERSION 4.
+  voteStatus?: [id: string, status: string][];
   official?: { qe: number; seats: [group: string, seats: number][] }; // once the TSE publishes it
 };
 
@@ -217,6 +220,7 @@ export function normalizeResult(key: string, raw: RawResult): NormalizedRace {
   const groups = new Map<string, GroupMeta>();
   const groupVotes = new Map<string, number>();
   const blocked: string[] = [];
+  const voteStatus: [string, string][] = [];
   const official: [string, number][] = [];
   for (const agr of carg.agr) {
     for (const par of agr.par) {
@@ -247,7 +251,10 @@ export function normalizeResult(key: string, raw: RawResult): NormalizedRace {
           ...(mates.length ? { mates } : {}),
         });
         votes.push([c.sqcand, toInt(c.vap), c.st ?? ""]);
-        if (c.dvt && c.dvt !== "Válido") blocked.push(c.sqcand);
+        if (c.dvt && c.dvt !== "Válido") {
+          blocked.push(c.sqcand);
+          voteStatus.push([c.sqcand, c.dvt]);
+        }
       }
     }
     const first = agr.par[0];
@@ -283,6 +290,7 @@ export function normalizeResult(key: string, raw: RawResult): NormalizedRace {
       votes,
       groupVotes: [...groupVotes.entries()],
       blocked,
+      voteStatus,
       ...(qe > 0 ? { official: { qe, seats: official } } : {}),
     },
   };

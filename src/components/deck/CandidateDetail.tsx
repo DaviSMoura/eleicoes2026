@@ -11,9 +11,11 @@ import {
   trendsFor,
   pointValidOf,
   validOf,
+  voteStatusOf,
   type Place,
   type Race,
 } from "@/lib/election/live";
+import { VoteStatusBadge } from "./VoteStatusBadge";
 
 const nf = new Intl.NumberFormat("pt-BR");
 const pct = (n: number, d = 2) => n.toFixed(d).replace(".", ",");
@@ -88,6 +90,7 @@ export function CandidateDetail({ race, place, ufRaces, candidateId, onBack }: P
           <p className="text-[11px] text-muted-foreground">{displayName(c.partyName)}</p>
         )}
         {status && <StatusBadge status={status} />}
+        <VoteStatusBadge status={voteStatusOf(data, c.id)} large />
       </div>
 
       <div className="grid grid-cols-2 gap-px border-y border-border bg-border">
