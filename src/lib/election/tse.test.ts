@@ -158,8 +158,10 @@ describe("topicsFor", () => {
     expect(topicsFor("sp-c0003-e006259")[0]).toBe("abr:sp");
     expect(topicsFor("sp-c0003-e006259")).toContain("gov-uf");
     expect(topicsFor("sp-c0005-e006259")).toContain("sen-uf");
+    expect(topicsFor("sp-c0006-e006259")).toContain("fed-uf");
+    expect(topicsFor("sp71072-c0006-e006259")).not.toContain("fed-uf");
     expect(topicsFor("sp71072-c0003-e006259")).not.toContain("gov-uf");
-    expect(topicsFor("sp-c0006-e006259")).toEqual(["abr:sp", "res:sp-c0006-e006259"]);
+    expect(topicsFor("sp-c0007-e006259")).toEqual(["abr:sp", "res:sp-c0007-e006259"]);
   });
 });
 

@@ -297,6 +297,7 @@ export const PRESIDENT_BY_UF_TOPIC = "pres-uf";
 export const STATE_RACE_TOPICS: Record<number, string> = {
   [CARGO.governador]: "gov-uf",
   [CARGO.senador]: "sen-uf",
+  [CARGO.depFederal]: "fed-uf",
 };
 export const placeTopic = (abr: string) => `abr:${abr}`;
 
