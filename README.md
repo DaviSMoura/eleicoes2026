@@ -96,6 +96,12 @@ A versão de 2024 deste projeto errava a divisão em uma de cada três cidades.
 ### Evolução e atualizações
 
 O gráfico de evolução mostra a porcentagem de cada candidato conforme a contagem avança.
+
+O botão **Mostrar tendência** desenha, tracejado, pra onde cada linha tende a ir até 100%.
+Não é esticar a linha: a conta estima como os votos que faltam devem se dividir e soma isso ao que cada um já tem.
+No Brasil, ela olha estado por estado o quanto falta apurar e como cada um vem votando.
+Nos estados e cidades, ela usa como foram os votos apurados por último, que mostram o perfil das urnas que tão chegando.
+O ponto final do tracejado é a mesma projeção da tabela de tendências.
 Na coluna do Brasil ainda tem o mapa dos estados, pintado com a cor de quem tá na frente em cada um - quanto mais forte, mais apurado.
 Embaixo fica um resumo do que aconteceu: quando a apuração passou de 10%, 25%, 50% e assim por diante, e quando alguém passou outro candidato.
 
