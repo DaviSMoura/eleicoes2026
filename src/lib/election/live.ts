@@ -148,6 +148,36 @@ function applyUpdate(u: Update) {
   emit();
 }
 
+// Last known snapshot of each race, so a reload renders immediately while the backend answers
+// (stale-while-revalidate). Optional: any storage failure just means no instant render.
+const CACHE_PREFIX = "eleicoes2026:race:";
+const CACHE_MAX_AGE_MS = 12 * 60 * 60 * 1000;
+const CACHE_MAX_CHARS = 600_000;
+
+function readCache(key: string): Race | undefined {
+  try {
+    const raw = localStorage.getItem(CACHE_PREFIX + key);
+    if (!raw) return undefined;
+    const { at, race } = JSON.parse(raw) as { at: number; race: Race };
+    if (Date.now() - at > CACHE_MAX_AGE_MS) {
+      localStorage.removeItem(CACHE_PREFIX + key);
+      return undefined;
+    }
+    return race;
+  } catch {
+    return undefined;
+  }
+}
+
+function writeCache(key: string, race: Race) {
+  try {
+    const raw = JSON.stringify({ at: Date.now(), race });
+    if (raw.length <= CACHE_MAX_CHARS) localStorage.setItem(CACHE_PREFIX + key, raw);
+  } catch {
+    // Storage full or unavailable: the cache is only an optimization.
+  }
+}
+
 async function watch(keys: string[], withHistory: boolean) {
   for (let i = 0; i < keys.length; i += 40) {
     const chunk = keys.slice(i, i + 40);
@@ -166,12 +196,14 @@ async function watch(keys: string[], withHistory: boolean) {
       if (!row) continue;
       const prev = races.get(key);
       const rows = data.history[key];
-      races.set(key, {
+      const race: Race = {
         meta: row.meta,
         data: prev && prev.data.sections > row.data.sections ? prev.data : row.data,
         colors: row.colors,
         history: rows ? rows.map(toPoint) : (prev?.history ?? []),
-      });
+      };
+      races.set(key, race);
+      writeCache(key, race);
     }
     if (status.error) status = { ...status, error: null };
     emit();
@@ -221,6 +253,15 @@ function retain(keys: string[], history: string[]) {
   // Keys still subscribed (released moments ago, e.g. a remount) need no new fetch.
   const fresh = keys.filter((k) => (refs.get(k) ?? 0) === 0 && !channels.has(k));
   keys.forEach((k) => refs.set(k, (refs.get(k) ?? 0) + 1));
+  let hydrated = false;
+  for (const k of fresh) {
+    const cached = races.has(k) ? undefined : readCache(k);
+    if (cached) {
+      races.set(k, cached);
+      hydrated = true;
+    }
+  }
+  if (hydrated) emit();
   fresh.forEach(subscribe);
   if (fresh.length) void watch(fresh, true).catch(() => setTimeout(() => retry(fresh), 5000));
 }
