@@ -31,7 +31,7 @@ export type TrendSummary = {
   runoffPair: [string, string] | null;
   winLabel: string;
   call: { kind: "vitoria" | "segundo-turno" | "lider" | "indefinido"; text: string };
-  decided: string[]; // candidates already elected for sure (see mathDecided)
+  decided: string[]; // elected for sure: by the TSE status or mathematically (see mathDecided)
 };
 
 const MAJORITARIAN = new Set([1, 3, 5]);
@@ -171,7 +171,7 @@ export function trendsFor(race: Race, ufs?: Race[]): TrendSummary {
         items,
         runoff: 0,
         runoffPair: null,
-        decided: [],
+        decided: elected,
         winLabel,
         call: { kind: "vitoria", text: `Eleito: ${elected.map(nameOf).join(" e ")}` },
       };

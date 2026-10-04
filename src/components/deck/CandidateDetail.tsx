@@ -225,7 +225,7 @@ function TrendStat({
     <Stat
       label="Projeção"
       value={`${pct(t.projected, 1)}%`}
-      hint={`${tr.winLabel}: ${t.win > 0.994 ? ">99" : Math.round(t.win * 100)}%`}
+      hint={`${tr.winLabel}: ${tr.decided.includes(candidateId) ? "100" : t.win > 0.994 ? ">99" : Math.round(t.win * 100)}%`}
     />
   );
 }

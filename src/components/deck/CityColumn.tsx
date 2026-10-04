@@ -759,7 +759,14 @@ function Trends({ race, parties, ufRaces }: { race: Race; parties: string[]; ufR
                     <>
                       <Num
                         value={t.win * 100}
-                        format={(n) => (n > 99.4 ? ">99" : Math.round(n).toString())}
+                        // Only a settled result is certain; a simulation never says 100%.
+                        format={(n) =>
+                          tr.decided.includes(c.id)
+                            ? "100"
+                            : n > 99.4
+                              ? ">99"
+                              : Math.round(n).toString()
+                        }
                       />
                       %
                     </>
