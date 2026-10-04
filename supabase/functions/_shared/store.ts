@@ -130,83 +130,110 @@ const check = ({ error }: { error: unknown }) => {
   if (error) throw error;
 };
 
-// Fetches one race and, when it changed, stores it and returns the realtime message plus the
-// stored row. Database round trips run in parallel: the function and the database sit in
-// different regions, so each sequential query costs a full trip.
-export async function refreshRace(key: string): Promise<Refreshed | null> {
-  const url = resultUrl(key);
-  const stateId = raceStateId(key);
-  const [got, prevRes] = await Promise.all([
-    getStates([stateId]).then((states) => fetchTse<RawResult>(url, states.get(stateId), stateId)),
-    db.from("results_latest").select("key, idg, sections, colors, colors_frozen").eq("key", key),
-  ]);
-  const now = new Date().toISOString();
-  if (got.kind !== "new") {
-    if (got.kind === "same" || got.kind === "missing")
-      await saveState({ id: stateId, checked_at: now });
-    return null;
-  }
-  check(prevRes);
-  const prev = (prevRes.data as LatestRow[])[0];
-  const race: NormalizedRace = normalizeResult(key, got.body);
-  // A stale CDN edge answered: keep what we have and our etag, and try again next cycle.
-  if (prev && isOlderGeneration(race.data.idg, prev.idg)) {
-    console.log(`stale edge for ${key}: got idg ${race.data.idg}, have ${prev.idg}`);
-    return null;
-  }
+// Refreshes a batch of races with as little database work as possible: during the count every
+// watched race changes every minute, and rewriting whole rows (candidate lists of hundreds of KB)
+// saturated the database.
+// - one read of the poller state for the batch, conditional GETs to the TSE in parallel;
+// - nothing is written when the TSE answers 304;
+// - for changed races, one read of the previous rows, then only the dynamic columns are updated.
+//   The static meta is written only the first time (or after NORMALIZE_VERSION changes).
+export async function refreshMany(
+  keys: string[],
+): Promise<{ results: Refreshed[]; errors: string[] }> {
+  const errors: string[] = [];
+  const states = await getStates(keys.map(raceStateId));
+  const fetched = await Promise.all(
+    keys.map(async (key) => {
+      const stateId = raceStateId(key);
+      const got = await fetchTse<RawResult>(resultUrl(key), states.get(stateId), stateId);
+      return { key, got };
+    }),
+  );
+  const fresh = fetched.flatMap(({ key, got }) => (got.kind === "new" ? [{ key, got }] : []));
+  if (fresh.length === 0) return { results: [], errors };
 
-  const frozen = prev?.colors_frozen ?? false;
-  const colors = frozen && prev ? prev.colors : assignColors(race.meta, race.data);
-  const colorsFrozen = frozen || race.data.progress >= COLOR_FREEZE_PROGRESS;
-
-  const writes: PromiseLike<void>[] = [
-    db
-      .from("results_latest")
-      .upsert({
-        key,
-        ele: race.meta.ele,
-        abr: race.meta.abr,
-        uf: race.meta.uf,
-        cargo: race.meta.cargo,
-        seats: race.meta.seats,
-        idg: race.data.idg,
-        sections: race.data.sections,
-        progress: race.data.progress,
-        tse_at: race.data.tseAt || null,
-        meta: race.meta,
-        data: race.data,
-        colors,
-        colors_frozen: colorsFrozen,
-        updated_at: now,
-      })
-      .then(check),
-    saveState({ id: stateId, etag: got.etag, checked_at: now, retry_after: null }),
-  ];
-  if (!prev || prev.sections !== race.data.sections) {
-    writes.push(
-      db
-        .from("results_history")
-        .upsert(
-          {
-            key,
-            sections: race.data.sections,
-            progress: race.data.progress,
-            tse_at: race.data.tseAt || null,
-            valid: race.data.valid,
-            votes: historyVotes(race.data),
-          },
-          { onConflict: "key,sections", ignoreDuplicates: true },
-        )
-        .then(check),
+  const prevRes = await db
+    .from("results_latest")
+    .select("key, idg, sections, colors, colors_frozen")
+    .in(
+      "key",
+      fresh.map((f) => f.key),
     );
-  }
-  await Promise.all(writes);
+  check(prevRes);
+  const prevBy = new Map((prevRes.data as LatestRow[]).map((r) => [r.key, r]));
+  const now = new Date().toISOString();
 
-  const payload = { key, data: race.data, colors };
-  return {
-    messages: topicsFor(key).map((topic) => ({ topic, event: "update", payload })),
-    row: { key, meta: race.meta, data: race.data, colors },
-  };
+  const results: Refreshed[] = [];
+  await Promise.all(
+    fresh.map(async ({ key, got }) => {
+      try {
+        const stateId = raceStateId(key);
+        const prev = prevBy.get(key);
+        const race: NormalizedRace = normalizeResult(key, got.body);
+        // A stale CDN edge answered: keep what we have and our etag, and retry next cycle.
+        if (prev && isOlderGeneration(race.data.idg, prev.idg)) return;
+
+        const frozen = prev?.colors_frozen ?? false;
+        const colors = frozen && prev ? prev.colors : assignColors(race.meta, race.data);
+        const dynamic = {
+          idg: race.data.idg,
+          sections: race.data.sections,
+          progress: race.data.progress,
+          tse_at: race.data.tseAt || null,
+          data: race.data,
+          colors,
+          colors_frozen: frozen || race.data.progress >= COLOR_FREEZE_PROGRESS,
+          updated_at: now,
+        };
+        // A stored etag for this normalize version means the row already has the current meta.
+        const metaIsCurrent = !!prev && !!states.get(stateId)?.etag;
+        const writes: PromiseLike<void>[] = [
+          (metaIsCurrent
+            ? db.from("results_latest").update(dynamic).eq("key", key)
+            : db.from("results_latest").upsert({
+                key,
+                ele: race.meta.ele,
+                abr: race.meta.abr,
+                uf: race.meta.uf,
+                cargo: race.meta.cargo,
+                seats: race.meta.seats,
+                meta: race.meta,
+                ...dynamic,
+              })
+          ).then(check),
+          saveState({ id: stateId, etag: got.etag, checked_at: now, retry_after: null }),
+        ];
+        if (!prev || prev.sections !== race.data.sections) {
+          writes.push(
+            db
+              .from("results_history")
+              .upsert(
+                {
+                  key,
+                  sections: race.data.sections,
+                  progress: race.data.progress,
+                  tse_at: race.data.tseAt || null,
+                  valid: race.data.valid,
+                  votes: historyVotes(race.data),
+                },
+                { onConflict: "key,sections", ignoreDuplicates: true },
+              )
+              .then(check),
+          );
+        }
+        await Promise.all(writes);
+
+        const payload = { key, data: race.data, colors };
+        results.push({
+          messages: topicsFor(key).map((topic) => ({ topic, event: "update", payload })),
+          row: { key, meta: race.meta, data: race.data, colors },
+        });
+      } catch (err) {
+        errors.push(`${key}: ${err instanceof Error ? err.message : String(err)}`);
+      }
+    }),
+  );
+  return { results, errors };
 }
 
 export async function broadcast(messages: Broadcast[]) {
@@ -224,19 +251,6 @@ export async function broadcast(messages: Broadcast[]) {
     if (!res.ok) console.error("broadcast failed", res.status, await res.text());
     else await res.body?.cancel();
   }
-}
-
-export async function mapLimit<T, R>(items: T[], limit: number, fn: (t: T) => Promise<R>) {
-  const out: R[] = [];
-  let i = 0;
-  const workers = Array.from({ length: Math.min(limit, items.length) }, async () => {
-    while (i < items.length) {
-      const idx = i++;
-      out[idx] = await fn(items[idx]!);
-    }
-  });
-  await Promise.all(workers);
-  return out;
 }
 
 export const corsHeaders = {

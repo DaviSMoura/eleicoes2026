@@ -2,14 +2,7 @@
 // Marks races as watched for the poller and returns what we already have stored.
 // Only a race nobody has opened yet is fetched from the TSE here.
 import { parseKey } from "../_shared/tse.ts";
-import {
-  broadcast,
-  corsHeaders,
-  db,
-  mapLimit,
-  refreshRace,
-  type LatestOut,
-} from "../_shared/store.ts";
+import { broadcast, corsHeaders, db, refreshMany, type LatestOut } from "../_shared/store.ts";
 
 const MAX_KEYS = 40;
 
@@ -62,7 +55,7 @@ Deno.serve(async (req) => {
   // First viewer of a race: fetch it from the TSE now and answer with what was stored.
   const missing = keys.filter((k) => !races[k]);
   if (missing.length > 0) {
-    const fresh = (await mapLimit(missing, 8, refreshRace)).filter((r) => r !== null);
+    const { results: fresh } = await refreshMany(missing);
     for (const { row } of fresh) races[row.key] = row;
     await broadcast(fresh.flatMap((r) => r.messages));
   }

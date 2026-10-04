@@ -1,91 +1,22 @@
 // One polling cycle, triggered every 5s by pg_cron. Public on purpose: the lock in
 // poller_try_lock() refuses cycles closer than 3s apart, so extra calls never add TSE load.
-import {
-  ELECTIONS,
-  abEntries,
-  abUrl,
-  diffAb,
-  parseKey,
-  summarizeAb,
-  type RawAb,
-} from "../_shared/tse.ts";
+import { parseKey } from "../_shared/tse.ts";
 import {
   broadcast,
   corsHeaders,
   db,
-  fetchTse,
-  getStates,
-  mapLimit,
-  raceStateId,
-  refreshRace,
+  refreshMany,
   saveState,
   SERVICE_KEY,
   SUPABASE_URL,
 } from "../_shared/store.ts";
 
 const WATCH_WINDOW_MS = 3 * 60 * 1000;
-const SAFETY_RECHECK_MS = 60 * 1000;
-
-const isMunicipal = (abr: string) => abr.length > 2;
-
-async function changedAbrangencias(watched: string[]): Promise<Set<string>> {
-  const changed = new Set<string>();
-  const byElection = new Map<string, string[]>();
-  for (const key of watched) {
-    const { ele } = parseKey(key);
-    byElection.set(ele, [...(byElection.get(ele) ?? []), key]);
-  }
-
-  for (const ele of ELECTIONS) {
-    const keys = byElection.get(ele);
-    if (!keys) continue;
-
-    // National index: tells which UFs moved since the last cycle.
-    const brUrl = abUrl(ele, "br");
-    const brState = (await getStates([brUrl])).get(brUrl);
-    const br = await fetchTse<RawAb>(brUrl, brState);
-    if (br.kind !== "new") continue;
-    const brSummary = summarizeAb(br.body, "br");
-    const movedUfs = diffAb(brState?.summary, brSummary);
-    for (const abr of movedUfs) changed.add(abr);
-
-    // State indexes, only for UFs that moved and have watched municipalities.
-    const ufsWithMun = new Set(
-      keys
-        .map((k) => parseKey(k))
-        .filter((p) => isMunicipal(p.abr))
-        .map((p) => p.uf),
-    );
-    const ufs = movedUfs.filter((uf) => ufsWithMun.has(uf));
-    const ufUrls = ufs.map((uf) => abUrl(ele, uf));
-    const ufStates = await getStates(ufUrls);
-    await mapLimit(ufs, 6, async (uf) => {
-      const url = abUrl(ele, uf);
-      const state = ufStates.get(url);
-      const got = await fetchTse<RawAb>(url, state);
-      if (got.kind !== "new") return;
-      const summary = summarizeAb(got.body, uf);
-      for (const abr of diffAb(state?.summary, summary)) changed.add(abr);
-      await saveState({ id: url, etag: got.etag, summary, checked_at: new Date().toISOString() });
-    });
-
-    await saveState({
-      id: brUrl,
-      etag: br.etag,
-      summary: brSummary,
-      checked_at: new Date().toISOString(),
-    });
-    console.log(
-      `ele ${ele}: ${movedUfs.length} abrangências moved, ${abEntries(br.body, "br").length} listed`,
-    );
-  }
-  return changed;
-}
 
 // Each refresh downloads and parses a TSE file; during the count every watched race changes
 // at once. Workers split that work so no single invocation hits the CPU limit.
-const WORKER_BATCH = 10;
-const WORKER_TIMEOUT_MS = 20_000;
+const WORKER_BATCH = 8;
+const WORKER_TIMEOUT_MS = 22_000;
 
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), {
@@ -98,16 +29,9 @@ type WorkerResult = { updated: number; errors: string[] };
 // Worker: refreshes a small batch of races. Only the dispatcher (holding the service key) may
 // call it, so outsiders cannot use it to make us hit the TSE.
 async function work(keys: string[]): Promise<WorkerResult> {
-  const errors: string[] = [];
-  const results = await mapLimit(keys, WORKER_BATCH, (key) =>
-    refreshRace(key).catch((err) => {
-      errors.push(`${key}: ${err instanceof Error ? err.message : String(err)}`);
-      return null;
-    }),
-  );
-  const updated = results.filter((r) => r !== null);
-  await broadcast(updated.flatMap((r) => r.messages));
-  return { updated: updated.length, errors };
+  const { results, errors } = await refreshMany(keys);
+  await broadcast(results.flatMap((r) => r.messages));
+  return { updated: results.length, errors };
 }
 
 async function dispatch(keys: string[]): Promise<WorkerResult> {
@@ -179,19 +103,9 @@ Deno.serve(async (req) => {
     const watched = (rows as { key: string }[]).map((r) => r.key);
     if (watched.length === 0) return new Response("idle");
 
-    const changed = await changedAbrangencias(watched);
-    const states = await getStates(watched.map(raceStateId));
-    const stale = (key: string) => {
-      const at = states.get(raceStateId(key))?.checked_at;
-      return !at || Date.now() - new Date(at).getTime() > SAFETY_RECHECK_MS;
-    };
-
-    // br/UF races are few: always do a (cheap, conditional) check. Municipal races only when
-    // their index entry moved, plus a safety recheck every minute.
-    const due = watched.filter((key) => {
-      const { abr } = parseKey(key);
-      return !isMunicipal(abr) || changed.has(abr) || stale(key);
-    });
+    // Every watched race gets a conditional GET each cycle: a 304 costs nothing on either side
+    // and nothing is written, so this is cheaper than tracking the per-UF index files.
+    const due = watched;
 
     const result = await dispatch(due);
     const summary = {
