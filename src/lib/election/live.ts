@@ -10,6 +10,7 @@ import {
   photoUrl,
   placeTopic,
   PRESIDENT_BY_UF_TOPIC,
+  STATE_RACE_TOPICS,
   topicsFor,
   type RaceData,
   type RaceMeta,
@@ -460,6 +461,57 @@ export function useColumn(placeId: string): Column {
   );
 }
 
+// Everything the status column shows: Presidente in Brasil and per state, plus Governador and
+// Senador of every state. Uses the aggregated topics, never the per-place ones (those carry the
+// large deputados lists).
+const STATUS_KEYS = {
+  br: keyFor("br", CARGO.presidente),
+  pres: NATIONAL_UF_KEYS,
+  gov: UFS.map((uf) => keyFor(uf, CARGO.governador)),
+  sen: UFS.map((uf) => keyFor(uf, CARGO.senador)),
+};
+const STATUS_ALL = [STATUS_KEYS.br, ...STATUS_KEYS.pres, ...STATUS_KEYS.gov, ...STATUS_KEYS.sen];
+const STATUS_TOPICS = [
+  placeTopic("br"),
+  PRESIDENT_BY_UF_TOPIC,
+  STATE_RACE_TOPICS[CARGO.governador]!,
+  STATE_RACE_TOPICS[CARGO.senador]!,
+];
+
+export type StatusRaces = {
+  br: Race | undefined;
+  pres: Map<string, Race>; // by UF (and "zz")
+  gov: Map<string, Race>;
+  sen: Map<string, Race>;
+};
+
+const byUf = (keys: string[]) =>
+  new Map(
+    keys.flatMap((k) => {
+      const r = races.get(k);
+      return r ? [[r.meta.abr, r] as const] : [];
+    }),
+  );
+
+export function useStatusRaces(): StatusRaces {
+  useEffect(() => {
+    retain(STATUS_ALL, [], STATUS_TOPICS);
+    return () => release(STATUS_ALL, STATUS_TOPICS);
+  }, []);
+  const v = useSyncExternalStore(subscribeStore, getVersion, getVersion);
+  return useMemo(
+    () => ({
+      br: races.get(STATUS_KEYS.br),
+      pres: byUf(STATUS_KEYS.pres),
+      gov: byUf(STATUS_KEYS.gov),
+      sen: byUf(STATUS_KEYS.sen),
+    }),
+    [v], // eslint-disable-line react-hooks/exhaustive-deps
+  );
+}
+
+export { raceStatus, STATE_LABEL, isSettled, type RaceState, type RaceStatus } from "./status";
+
 export function useLiveStatus() {
   const v = useSyncExternalStore(subscribeStore, getVersion, getVersion);
   return useMemo(() => {
@@ -468,3 +520,4 @@ export function useLiveStatus() {
     return { ...status, lastTseAt: last };
   }, [v]); // eslint-disable-line react-hooks/exhaustive-deps
 }
+export { colorsForParties } from "./colors";

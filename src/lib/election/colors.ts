@@ -68,3 +68,16 @@ export function colorsFor(meta: RaceMeta): Record<string, number> {
   }
   return colors;
 }
+
+// One color per party across many races (the status maps), so two parties sharing a map
+// never share a color while slots last. Same preferences and priority as inside a race.
+export function colorsForParties(parties: Iterable<string>): Map<string, number> {
+  const base = { name: "", number: "", born: "", group: "" };
+  const candidates = [...new Set(parties)].map((party, seq) => ({
+    ...base,
+    id: party,
+    party,
+    seq,
+  }));
+  return new Map(Object.entries(partyColors({ candidates })));
+}

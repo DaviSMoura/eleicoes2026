@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { normalizeResult, type RawResult } from "../../../supabase/functions/_shared/tse";
-import { partyColors } from "./colors";
+import { colorsForParties, partyColors } from "./colors";
 
 import brPres from "./__fixtures__/br-c0001-e006257-u.json";
 
@@ -37,5 +37,16 @@ describe("partyColors", () => {
       ],
     });
     expect(colors).toEqual({ pt: 1, pdt: 5 });
+  });
+});
+
+describe("colorsForParties", () => {
+  it("keeps parties that share a map apart", () => {
+    const colors = colorsForParties(["PP", "PL", "UNIÃO", "PT", "PSD"]);
+    expect(colors.get("PT")).toBe(1);
+    expect(colors.get("PL")).toBe(2);
+    expect(colors.get("PSD")).toBe(8);
+    const slots = [...colors.values()];
+    expect(new Set(slots).size).toBe(slots.length);
   });
 });
