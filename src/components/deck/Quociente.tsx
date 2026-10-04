@@ -53,8 +53,10 @@ export function Quociente({ race, place }: { race: Race; place: Place }) {
     );
 
   // Once the TSE publishes the distribution, show it instead of our simulation.
-  const official = data.official ? new Map(data.official.seats) : null;
-  const qe = data.official?.qe ?? result.qe;
+  // The TSE publishes a partial QE and seats while counting; only the finished count is final.
+  const final = data.official && data.progress >= 100 ? data.official : undefined;
+  const official = final ? new Map(final.seats) : null;
+  const qe = final?.qe ?? result.qe;
   const rows: Row[] = result.groups
     .map((g) => {
       const seats = official ? (official.get(g.id) ?? 0) : g.seats;
