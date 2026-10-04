@@ -18,6 +18,7 @@ import {
   fmtTime,
   isProportional,
   officesFor,
+  roundShares,
   turnoutPct,
   trendsFor,
   useColumn,
@@ -690,6 +691,9 @@ function Trends({ race, parties, ufRaces }: { race: Race; parties: string[]; ufR
   const { meta } = race;
   const tr = trendsFor(race, ufRaces);
   const byId = new Map(tr.items.map((t) => [t.id, t]));
+  const winPct = new Map(
+    roundShares(tr.items.map((t) => t.win * 100)).map((v, i) => [tr.items[i]!.id, v]),
+  );
   const isDep = isDeputados(race);
   const started = race.data.progress > 0;
   let list = meta.candidates;
@@ -762,12 +766,12 @@ function Trends({ race, parties, ufRaces }: { race: Race; parties: string[]; ufR
                   {started ? (
                     <>
                       <Num
-                        value={t.win * 100}
+                        value={winPct.get(c.id) ?? 0}
                         // Only a settled result is certain; a simulation never says 100%.
                         format={(n) =>
                           tr.decided.includes(c.id)
                             ? "100"
-                            : n > 99.4
+                            : t.win > 0.994
                               ? ">99"
                               : Math.round(n).toString()
                         }

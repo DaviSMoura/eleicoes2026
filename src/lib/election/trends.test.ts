@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { normalizeResult, type RawResult } from "../../../supabase/functions/_shared/tse";
-import { mathDecided, projectNational, trendsFor, type Race } from "./trends";
+import { mathDecided, projectNational, roundShares, trendsFor, type Race } from "./trends";
 
 import brPres from "./__fixtures__/br-c0001-e006257-u.json";
 import spSen from "./__fixtures__/sp-c0005-e006259-u.json";
@@ -171,5 +171,16 @@ describe("mathDecided", () => {
     expect(tr.items.find((t) => t.id === x)!.win).toBe(1);
     expect(tr.call.text).toMatch(/^Marina Silva já está eleito; /);
     expect(tr.call.text).not.toMatch(/Marina Silva.*Marina Silva/);
+  });
+});
+
+describe("roundShares", () => {
+  it("keeps the total at 100 instead of 101", () => {
+    expect(roundShares([94.75, 5.5, 0, 0])).toEqual([95, 5, 0, 0]);
+    expect(roundShares([33.4, 33.3, 33.3]).reduce((a, b) => a + b, 0)).toBe(100);
+  });
+
+  it("keeps two-seat races at 200", () => {
+    expect(roundShares([99.5, 60.5, 40]).reduce((a, b) => a + b, 0)).toBe(200);
   });
 });

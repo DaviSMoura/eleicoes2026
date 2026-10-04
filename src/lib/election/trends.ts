@@ -268,3 +268,18 @@ export function trendsFor(race: Race, ufs?: Race[]): TrendSummary {
   }
   return { items, runoff: runoffP, runoffPair: pair, decided, winLabel, call };
 }
+
+// Rounds percentages so the integers still add up to the rounded total (largest remainder),
+// e.g. 94.75% and 5.25% become 95% and 5%, not 95% and 6% (101%).
+export function roundShares(values: number[]): number[] {
+  const total = Math.round(values.reduce((a, b) => a + b, 0));
+  const floors = values.map(Math.floor);
+  let left = total - floors.reduce((a, b) => a + b, 0);
+  const order = values.map((v, i) => [v - Math.floor(v), i] as const).sort((a, b) => b[0] - a[0]);
+  for (const [, i] of order) {
+    if (left <= 0) break;
+    floors[i]!++;
+    left--;
+  }
+  return floors;
+}
