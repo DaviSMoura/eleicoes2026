@@ -62,6 +62,12 @@ export function StatusColumn({ onRemove, onMove, isFirst, isLast }: Props) {
   const [view, setView] = useState<View>("apuracao");
   const br = st.br;
   const presUfs = useMemo(() => [...st.pres.values()], [st.pres]);
+  // The TSE publishes the national file less often than the states', so the header shows the
+  // newest generation among every race in this column.
+  const lastAt = [br, ...st.pres.values(), ...st.gov.values(), ...st.sen.values()].reduce(
+    (last, r) => (r && r.data.tseAt > last ? r.data.tseAt : last),
+    "",
+  );
 
   return (
     <section
@@ -74,7 +80,7 @@ export function StatusColumn({ onRemove, onMove, isFirst, isLast }: Props) {
           <div className="min-w-0 flex-1">
             <h2 className="truncate text-[15px] font-bold leading-tight">Status da apuração</h2>
             <p className="truncate text-xs text-muted-foreground">
-              {br?.data.tseAt ? `TSE, ${fmtFull(br.data.tseAt)}` : "Brasil e exterior"}
+              {lastAt ? `TSE, ${fmtFull(lastAt)}` : "Brasil e exterior"}
             </p>
           </div>
           <div className="flex text-muted-foreground">
