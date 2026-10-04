@@ -64,7 +64,7 @@ Deno.serve(async (req) => {
   if (missing.length > 0) {
     const fresh = (await mapLimit(missing, 8, refreshRace)).filter((r) => r !== null);
     for (const { row } of fresh) races[row.key] = row;
-    await broadcast(fresh.map((r) => r.message));
+    await broadcast(fresh.flatMap((r) => r.messages));
   }
 
   const history: Record<string, unknown[]> = {};

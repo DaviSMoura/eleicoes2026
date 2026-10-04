@@ -105,9 +105,9 @@ async function work(keys: string[]): Promise<WorkerResult> {
       return null;
     }),
   );
-  const messages = results.filter((r) => r !== null).map((r) => r.message);
-  await broadcast(messages);
-  return { updated: messages.length, errors };
+  const updated = results.filter((r) => r !== null);
+  await broadcast(updated.flatMap((r) => r.messages));
+  return { updated: updated.length, errors };
 }
 
 async function dispatch(keys: string[]): Promise<WorkerResult> {

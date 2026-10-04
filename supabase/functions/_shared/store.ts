@@ -7,6 +7,7 @@ import {
   assignColors,
   isOlderGeneration,
   normalizeResult,
+  topicsFor,
   resultUrl,
   type NormalizedRace,
   type RaceData,
@@ -123,7 +124,7 @@ export type LatestOut = {
   data: RaceData;
   colors: Record<string, number>;
 };
-export type Refreshed = { message: Broadcast; row: LatestOut };
+export type Refreshed = { messages: Broadcast[]; row: LatestOut };
 
 const check = ({ error }: { error: unknown }) => {
   if (error) throw error;
@@ -201,8 +202,9 @@ export async function refreshRace(key: string): Promise<Refreshed | null> {
   }
   await Promise.all(writes);
 
+  const payload = { key, data: race.data, colors };
   return {
-    message: { topic: `res:${key}`, event: "update", payload: { key, data: race.data, colors } },
+    messages: topicsFor(key).map((topic) => ({ topic, event: "update", payload })),
     row: { key, meta: race.meta, data: race.data, colors },
   };
 }

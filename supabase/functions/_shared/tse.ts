@@ -120,7 +120,7 @@ export type RawResult = {
   idg: string;
   tf?: string; // "s" when the count is final
   s: { ts: string; st: string; pst: string };
-  e: { te: string; c: string };
+  e: { te: string; c: string; est?: string }; // est: electorate of the sections already counted
   v: { vv: string };
   carg: RawCarg[];
 };
@@ -181,6 +181,7 @@ export type RaceData = {
   sectionsTotal: number;
   progress: number; // % de seções totalizadas
   electorate: number;
+  electorateCounted?: number; // electorate of the sections already counted (turnout's base)
   turnout: number; // comparecimento (people)
   valid: number; // votos válidos
   votes: VoteRow[];
@@ -276,6 +277,7 @@ export function normalizeResult(key: string, raw: RawResult): NormalizedRace {
       sectionsTotal: toInt(raw.s.ts),
       progress: toPct(raw.s.pst),
       electorate: toInt(raw.e.te),
+      electorateCounted: toInt(raw.e.est),
       turnout: toInt(raw.e.c),
       valid: toInt(raw.v.vv),
       votes,
@@ -284,6 +286,22 @@ export function normalizeResult(key: string, raw: RawResult): NormalizedRace {
       ...(qe > 0 ? { official: { qe, seats: official } } : {}),
     },
   };
+}
+
+// ---------- realtime topics ----------
+// One topic per place (a column subscribes once for all its offices), plus one topic with the
+// Presidente of every UF and abroad, which the Brasil column needs as a whole. Per-race topics
+// put a Brasil column alone at 29 channels and many open columns past the per-client limit.
+export const PRESIDENT_BY_UF_TOPIC = "pres-uf";
+export const placeTopic = (abr: string) => `abr:${abr}`;
+
+export function topicsFor(key: string): string[] {
+  const { abr, cargo } = parseKey(key);
+  // `res:<key>` is the previous per-race topic, kept while open tabs still run the old client.
+  const topics = [placeTopic(abr), `res:${key}`];
+  if (cargo === CARGO.presidente && abr.length === 2 && abr !== "br")
+    topics.push(PRESIDENT_BY_UF_TOPIC);
+  return topics;
 }
 
 // ---------- generations ----------
