@@ -150,6 +150,15 @@ const pointFrom = (data: RaceData): HistoryPoint => ({
   votes: Object.fromEntries(data.votes.map(([id, v]) => [id, v])),
 });
 
+// Union of what we have and what arrived, by sections counted. A response can be partial (the
+// history query has a row cap), so it must never replace points we already have.
+export function mergeHistory(have: HistoryPoint[], incoming: HistoryPoint[]): HistoryPoint[] {
+  if (incoming.length === 0) return have;
+  const bySections = new Map(have.map((h) => [h.sections, h]));
+  for (const h of incoming) bySections.set(h.sections, h);
+  return [...bySections.values()].sort((a, b) => a.sections - b.sections);
+}
+
 function applyUpdate(u: Update) {
   const cur = races.get(u.key);
   if (!cur || u.data.sections < cur.data.sections) return;
@@ -224,7 +233,7 @@ async function watch(keys: string[], withHistory: boolean, lite = false) {
         meta,
         data: prev && prev.data.sections > row.data.sections ? prev.data : row.data,
         colors: colorsFor(meta),
-        history: rows ? rows.map(toPoint) : (prev?.history ?? []),
+        history: mergeHistory(prev?.history ?? [], rows ? rows.map(toPoint) : []),
       };
       races.set(key, race);
       writeCache(key, race);
