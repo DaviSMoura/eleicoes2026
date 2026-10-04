@@ -5,7 +5,7 @@ Você escolhe o que quer acompanhar - o Brasil, um estado, a sua cidade - e cada
 
 No ar em **[eleicoes2026-ashy.vercel.app](https://eleicoes2026-ashy.vercel.app)**.
 
-![Painel com as colunas Status da apuração, Brasil, estado de São Paulo e cidade de São Paulo](docs/screenshots/painel-escuro.png)
+![Painel com as colunas Status da apuração (mapa de governador), Brasil, estado de São Paulo e cidade de São Paulo](docs/screenshots/painel-escuro.png)
 
 ## O que dá pra fazer
 
@@ -22,14 +22,29 @@ Fechou a aba e voltou depois, tá tudo lá, do jeito que você deixou.
 
 ### Status da apuração
 
-É a coluna que mostra o andamento geral da contagem, não quem tá ganhando.
+É o resumo geral, em quatro abas.
+
+**Apuração** mostra o andamento da contagem, não quem tá ganhando.
 
 - Quantas seções eleitorais do Brasil já foram contadas, de quantas no total.
 - O comparecimento - quanto do eleitorado das seções já contadas foi votar.
 - Um mapa onde cada estado fica mais forte conforme avança a contagem. Passa o mouse num estado pra ver o número.
 - O mesmo por região e um ranking dos estados, do mais ao menos apurado.
 
-<img src="docs/screenshots/status-apuracao.png" alt="Coluna Status da apuração com o mapa do Brasil" width="340">
+<img src="docs/screenshots/status-apuracao.png" alt="Aba Apuração da coluna Status, com o mapa do Brasil" width="340">
+
+**Presidente**, **Governador** e **Senador** mostram quem tá na frente em cada estado.
+
+- O mapa pinta cada estado com a cor do partido de quem lidera. Quanto mais apurado, mais forte a cor.
+- Onde o resultado já tá definido aparece um ✓. Vale quando o TSE publica o eleito ou o 2º turno, e também quando a conta já fecha antes disso - quem tá na frente não tem mais como ser alcançado nem com todos os votos que faltam.
+- Em cima, o resumo: quantos governadores já foram eleitos, quantos estados tendem ao 2º turno, quantas das 54 vagas do Senado já estão definidas.
+- Embaixo, a lista estado por estado, com quem lidera, o percentual e a situação.
+- Em Presidente não tem ✓ por estado, porque presidente se decide no país todo. No topo aparece a tendência nacional.
+
+<p>
+<img src="docs/screenshots/status-governador.png" alt="Aba Governador com o mapa pintado pela cor do partido que lidera em cada estado" width="340">
+<img src="docs/screenshots/status-senador.png" alt="Aba Senador com as vagas já definidas em cada estado" width="340">
+</p>
 
 ### O placar
 
