@@ -18,6 +18,7 @@ import {
   fmtTime,
   isProportional,
   officesFor,
+  turnoutPct,
   trendsFor,
   useColumn,
   validOf,
@@ -164,8 +165,8 @@ export function CityColumn({ place, onRemove, onMove, isFirst, isLast }: Props) 
             <div className="mt-1 flex justify-between text-[11px] text-muted-foreground">
               <span className="tnum">
                 Comparecimento{" "}
-                {race && race.data.electorate > 0
-                  ? `${pct((race.data.turnout / race.data.electorate) * 100, 1)}%`
+                {race && turnoutPct(race.data) !== null
+                  ? `${pct(turnoutPct(race.data)!, 1)}%`
                   : "-"}
               </span>
               <span className="tnum">

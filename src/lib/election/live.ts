@@ -8,6 +8,9 @@ import {
   UFS,
   keyFor,
   photoUrl,
+  placeTopic,
+  PRESIDENT_BY_UF_TOPIC,
+  topicsFor,
   type RaceData,
   type RaceMeta,
 } from "../../../supabase/functions/_shared/tse";
@@ -20,19 +23,30 @@ export type { QeResult, QeGroupResult } from "./quociente";
 
 // ---------- places ----------
 
-export type PlaceKind = "br" | "uf" | "mun" | "zz";
+export type PlaceKind = "status" | "br" | "uf" | "mun" | "zz";
 export type Place = { id: string; name: string; uf: string; kind: PlaceKind };
 
-export const placeKind = (id: string): PlaceKind =>
-  id === "br" ? "br" : id.length === 2 ? "uf" : id.startsWith("zz") ? "zz" : "mun";
+export const STATUS_PLACE = "status";
 
-export const DEFAULT_PLACES = ["br", "sp", "sp71072"];
+export const placeKind = (id: string): PlaceKind =>
+  id === STATUS_PLACE
+    ? "status"
+    : id === "br"
+      ? "br"
+      : id.length === 2
+        ? "uf"
+        : id.startsWith("zz")
+          ? "zz"
+          : "mun";
+
+export const DEFAULT_PLACES = [STATUS_PLACE, "br", "sp", "sp71072"];
 
 let placesPromise: Promise<Place[]> | undefined;
 export function loadPlaces(): Promise<Place[]> {
-  placesPromise ??= import("./places.gen").then((m) =>
-    m.PLACES.map(([id, name, uf]) => ({ id, name, uf, kind: placeKind(id) })),
-  );
+  placesPromise ??= import("./places.gen").then((m) => [
+    { id: STATUS_PLACE, name: "Status da apuração", uf: "BR", kind: "status" as const },
+    ...m.PLACES.map(([id, name, uf]) => ({ id, name, uf, kind: placeKind(id) })),
+  ]);
   return placesPromise;
 }
 
@@ -82,6 +96,13 @@ const timeFmt = new Intl.DateTimeFormat("pt-BR", {
   minute: "2-digit",
   timeZone: "America/Sao_Paulo",
 });
+// Turnout as the TSE shows it: over the electorate of the sections already counted. Rows
+// stored before that field existed have no base, so they show nothing rather than a wrong %.
+export const turnoutPct = (data: RaceData) =>
+  data.electorateCounted && data.electorateCounted > 0
+    ? (data.turnout / data.electorateCounted) * 100
+    : null;
+
 export const fmtTime = (iso: string) => (iso ? timeFmt.format(new Date(iso)) : "");
 
 const dayFmt = new Intl.DateTimeFormat("pt-BR", {
@@ -217,24 +238,28 @@ async function watch(keys: string[], withHistory: boolean) {
   }
 }
 
+// Realtime: one channel per topic (a place, or the Presidente of all UFs), shared by every
+// column that needs it. Race data is reference-counted separately, per race key.
+const topicRefs = new Map<string, number>();
 const joined = new Set<string>();
+const lingering = new Set<string>(); // released keys whose data is kept a moment for remounts
 const pendingResync = new Set<string>();
 let resyncTimer: ReturnType<typeof setTimeout> | undefined;
 
 // A reconnect rejoins every channel at once; batch them into a single watch call.
-function queueResync(key: string) {
-  pendingResync.add(key);
+function queueResync(keys: string[]) {
+  keys.forEach((k) => pendingResync.add(k));
   clearTimeout(resyncTimer);
   resyncTimer = setTimeout(() => {
-    const keys = [...pendingResync].filter((k) => refs.has(k));
+    const due = [...pendingResync].filter((k) => refs.has(k));
     pendingResync.clear();
-    if (keys.length) void watch(keys, true).catch(() => undefined);
+    if (due.length) void watch(due, true).catch(() => undefined);
   }, 300);
 }
 
-function subscribe(key: string) {
+function subscribe(topic: string) {
   const ch = supabase
-    .channel(`res:${key}`)
+    .channel(topic)
     .on("broadcast", { event: "update" }, ({ payload }) => applyUpdate(payload as Update))
     .subscribe((s) => {
       if (s === "SUBSCRIBED") {
@@ -242,24 +267,28 @@ function subscribe(key: string) {
           status = { ...status, live: true };
           emit();
         }
-        // Rejoined after a drop: fetch what we may have missed while disconnected.
-        if (joined.has(key)) queueResync(key);
-        joined.add(key);
-      } else if (s === "CHANNEL_ERROR" || s === "TIMED_OUT" || s === "CLOSED") {
-        if (status.live && s !== "CLOSED") {
+        // Rejoined after a drop: fetch what this topic may have missed while disconnected.
+        if (joined.has(topic))
+          queueResync([...refs.keys()].filter((k) => topicsFor(k).includes(topic)));
+        joined.add(topic);
+      } else if (s === "CHANNEL_ERROR" || s === "TIMED_OUT") {
+        if (status.live) {
           status = { ...status, live: false };
           emit();
         }
       }
     });
-  channels.set(key, ch);
+  channels.set(topic, ch);
 }
 
-function retain(keys: string[], history: string[]) {
+function retain(keys: string[], history: string[], topics: string[]) {
   history.forEach((k) => historyWanted.add(k));
-  // Keys still subscribed (released moments ago, e.g. a remount) need no new fetch.
-  const fresh = keys.filter((k) => (refs.get(k) ?? 0) === 0 && !channels.has(k));
-  keys.forEach((k) => refs.set(k, (refs.get(k) ?? 0) + 1));
+  // Keys released moments ago (a remount, a moved column) still have fresh data: no refetch.
+  const fresh = keys.filter((k) => (refs.get(k) ?? 0) === 0 && !lingering.has(k));
+  keys.forEach((k) => {
+    refs.set(k, (refs.get(k) ?? 0) + 1);
+    lingering.delete(k);
+  });
   let hydrated = false;
   for (const k of fresh) {
     const cached = races.has(k) ? undefined : readCache(k);
@@ -269,7 +298,10 @@ function retain(keys: string[], history: string[]) {
     }
   }
   if (hydrated) emit();
-  fresh.forEach(subscribe);
+  for (const t of topics) {
+    topicRefs.set(t, (topicRefs.get(t) ?? 0) + 1);
+    if (!channels.has(t)) subscribe(t);
+  }
   if (fresh.length) void watch(fresh, true).catch(() => setTimeout(() => retry(fresh), 5000));
 }
 
@@ -280,23 +312,35 @@ function retry(keys: string[]) {
 
 const RELEASE_DELAY_MS = 2000;
 
-// Drop channels and data only if nobody re-retains the key shortly after
+// Drop data and channels only if nobody re-retains them shortly after
 // (React remounts, moving a column), so those cases cost no extra request.
-function release(keys: string[]) {
+function release(keys: string[], topics: string[]) {
   for (const k of keys) {
     const n = (refs.get(k) ?? 0) - 1;
     if (n > 0) refs.set(k, n);
-    else refs.delete(k);
+    else {
+      refs.delete(k);
+      lingering.add(k);
+    }
+  }
+  for (const t of topics) {
+    const n = (topicRefs.get(t) ?? 0) - 1;
+    if (n > 0) topicRefs.set(t, n);
+    else topicRefs.delete(t);
   }
   setTimeout(() => {
     for (const k of keys) {
       if (refs.has(k)) continue;
+      lingering.delete(k);
       historyWanted.delete(k);
-      joined.delete(k);
-      const ch = channels.get(k);
-      if (ch) void supabase.removeChannel(ch);
-      channels.delete(k);
       races.delete(k);
+    }
+    for (const t of topics) {
+      if (topicRefs.has(t)) continue;
+      joined.delete(t);
+      const ch = channels.get(t);
+      if (ch) void supabase.removeChannel(ch);
+      channels.delete(t);
     }
   }, RELEASE_DELAY_MS);
 }
@@ -335,9 +379,10 @@ export function useColumn(placeId: string): Column {
 
   useEffect(() => {
     const keys = [...mainKeys, ...(extra ?? [])];
-    retain(keys, mainKeys);
-    return () => release(keys);
-  }, [mainKeys, extra]);
+    const topics = [placeTopic(placeId), ...(extra ? [PRESIDENT_BY_UF_TOPIC] : [])];
+    retain(keys, mainKeys, topics);
+    return () => release(keys, topics);
+  }, [placeId, mainKeys, extra]);
 
   const v = useSyncExternalStore(subscribeStore, getVersion, getVersion);
   return useMemo(

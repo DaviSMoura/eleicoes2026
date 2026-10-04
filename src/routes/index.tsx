@@ -5,6 +5,7 @@ import { Logo } from "@/components/deck/Logo";
 import { Tip } from "@/components/deck/Tip";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { CityColumn } from "@/components/deck/CityColumn";
+import { StatusColumn } from "@/components/deck/StatusColumn";
 import { Termo } from "@/components/deck/Termo";
 import { GitHubMark } from "@/components/deck/GitHubMark";
 import {
@@ -129,7 +130,11 @@ function Deck() {
                   }
                   className="grid size-9 shrink-0 place-items-center rounded text-[11px] font-bold text-muted-foreground hover:bg-sidebar-accent hover:text-foreground"
                 >
-                  {p.kind === "uf" || p.kind === "br" ? p.uf : p.name.slice(0, 3).toUpperCase()}
+                  {p.kind === "status"
+                    ? "%"
+                    : p.kind === "uf" || p.kind === "br"
+                      ? p.uf
+                      : p.name.slice(0, 3).toUpperCase()}
                 </button>
               </Tip>
             ))}
@@ -173,16 +178,26 @@ function Deck() {
         <div className="flex min-w-0 flex-1 flex-col">
           <main className="flex flex-1 overflow-x-auto">
             {mounted &&
-              shown.map((p, i) => (
-                <CityColumn
-                  key={p.id}
-                  place={p}
-                  isFirst={i === 0}
-                  isLast={i === shown.length - 1}
-                  onRemove={() => remove(p.id)}
-                  onMove={(dir) => move(p.id, dir)}
-                />
-              ))}
+              shown.map((p, i) =>
+                p.kind === "status" ? (
+                  <StatusColumn
+                    key={p.id}
+                    isFirst={i === 0}
+                    isLast={i === shown.length - 1}
+                    onRemove={() => remove(p.id)}
+                    onMove={(dir) => move(p.id, dir)}
+                  />
+                ) : (
+                  <CityColumn
+                    key={p.id}
+                    place={p}
+                    isFirst={i === 0}
+                    isLast={i === shown.length - 1}
+                    onRemove={() => remove(p.id)}
+                    onMove={(dir) => move(p.id, dir)}
+                  />
+                ),
+              )}
             <button
               onClick={() => setAdding(true)}
               className="flex h-full w-[220px] shrink-0 flex-col items-center justify-center gap-2 text-muted-foreground hover:bg-accent/40 hover:text-foreground"
@@ -241,7 +256,7 @@ function Deck() {
   );
 }
 
-const KIND_ORDER: Record<Place["kind"], number> = { br: 0, uf: 1, mun: 2, zz: 3 };
+const KIND_ORDER: Record<Place["kind"], number> = { status: -1, br: 0, uf: 1, mun: 2, zz: 3 };
 
 function AddPanel({
   places,
@@ -262,7 +277,7 @@ function AddPanel({
     const all = [...places.values()];
     const hits = nq
       ? all.filter((p) => norm(`${p.name} ${p.uf}`).includes(nq))
-      : all.filter((p) => p.kind === "br" || p.kind === "uf");
+      : all.filter((p) => p.kind === "status" || p.kind === "br" || p.kind === "uf");
     return hits
       .sort(
         (a, b) =>
@@ -273,7 +288,15 @@ function AddPanel({
       .slice(0, 100);
   }, [places, q]);
   const label = (p: Place) =>
-    p.kind === "br" ? "País" : p.kind === "uf" ? "Estado" : p.kind === "zz" ? "Exterior" : p.uf;
+    p.kind === "status"
+      ? "Visão geral"
+      : p.kind === "br"
+        ? "País"
+        : p.kind === "uf"
+          ? "Estado"
+          : p.kind === "zz"
+            ? "Exterior"
+            : p.uf;
   return (
     <div className="flex h-full w-[300px] shrink-0 flex-col border-r border-border bg-popover animate-fade-in">
       <div className="flex items-center justify-between border-b border-border px-3 py-3">

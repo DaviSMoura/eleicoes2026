@@ -7,6 +7,7 @@ import {
   diffAb,
   isOlderGeneration,
   keyFor,
+  topicsFor,
   normalizeResult,
   parseKey,
   photoUrl,
@@ -145,6 +146,16 @@ describe("ab change detection", () => {
       ),
     };
     expect(diffAb(before, summarizeAb(next, "sp"))).toEqual(["sp71072"]);
+  });
+});
+
+describe("topicsFor", () => {
+  it("sends each race to its place, and UF presidente also to the Brasil aggregate", () => {
+    expect(topicsFor("sp-c0001-e006257")).toEqual(["abr:sp", "res:sp-c0001-e006257", "pres-uf"]);
+    expect(topicsFor("zz-c0001-e006257")).toContain("pres-uf");
+    expect(topicsFor("br-c0001-e006257")).not.toContain("pres-uf");
+    expect(topicsFor("sp71072-c0001-e006257")).not.toContain("pres-uf");
+    expect(topicsFor("sp-c0003-e006259")[0]).toBe("abr:sp");
   });
 });
 
