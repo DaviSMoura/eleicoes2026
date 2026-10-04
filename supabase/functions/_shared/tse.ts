@@ -293,14 +293,22 @@ export function normalizeResult(key: string, raw: RawResult): NormalizedRace {
 // Presidente of every UF and abroad, which the Brasil column needs as a whole. Per-race topics
 // put a Brasil column alone at 29 channels and many open columns past the per-client limit.
 export const PRESIDENT_BY_UF_TOPIC = "pres-uf";
+// The status column follows Governador and Senador of every state, also through one topic each.
+export const STATE_RACE_TOPICS: Record<number, string> = {
+  [CARGO.governador]: "gov-uf",
+  [CARGO.senador]: "sen-uf",
+};
 export const placeTopic = (abr: string) => `abr:${abr}`;
 
 export function topicsFor(key: string): string[] {
   const { abr, cargo } = parseKey(key);
   // `res:<key>` is the previous per-race topic, kept while open tabs still run the old client.
   const topics = [placeTopic(abr), `res:${key}`];
+  const isUf = abr.length === 2 && abr !== "br" && abr !== "zz";
   if (cargo === CARGO.presidente && abr.length === 2 && abr !== "br")
     topics.push(PRESIDENT_BY_UF_TOPIC);
+  const stateTopic = STATE_RACE_TOPICS[cargo];
+  if (isUf && stateTopic) topics.push(stateTopic);
   return topics;
 }
 
