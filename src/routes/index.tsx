@@ -18,8 +18,8 @@ export const Route = createFileRoute("/")({
   component: Deck,
 });
 
-const DEFAULT = ["sao-paulo", "fortaleza", "belo-horizonte"];
-const KEY = "apuracao26:cols";
+const DEFAULT = ["brasil", "sao-paulo", "fortaleza", "belo-horizonte"];
+const KEY = "apuracao26:cols:v2";
 
 type S = { cols: CityState[]; clock: number; paused: boolean };
 type A =

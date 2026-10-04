@@ -3,6 +3,8 @@ import { ChevronLeft, ChevronRight, X, MapPin } from "lucide-react";
 import { Line, LineChart, XAxis, YAxis, CartesianGrid, Tooltip } from "recharts";
 import {
   OFFICES,
+  UFS,
+  isNational,
   fmtClock,
   validVotes,
   zoneLeader,
@@ -33,6 +35,8 @@ export function CityColumn({ state, onRemove, onMove, isFirst, isLast }: Props) 
   const [office, setOffice] = useState<Office>("presidente");
   const { city, progress } = state;
   const done = progress >= 100;
+  const national = isNational(state.id);
+  const offices = national ? OFFICES.slice(0, 1) : OFFICES;
 
   return (
     <section
@@ -45,7 +49,7 @@ export function CityColumn({ state, onRemove, onMove, isFirst, isLast }: Props) 
           <div className="min-w-0 flex-1">
             <h2 className="truncate text-[15px] font-bold leading-tight">{city.name}</h2>
             <p className="text-xs text-muted-foreground">
-              {city.uf} · {nf.format(city.electorate)} eleitores
+              {national ? "Geral · Presidente" : city.uf} · {nf.format(city.electorate)} eleitores
             </p>
           </div>
           <div className="flex text-muted-foreground">
@@ -76,7 +80,7 @@ export function CityColumn({ state, onRemove, onMove, isFirst, isLast }: Props) 
           </div>
         </div>
         <nav className="flex">
-          {OFFICES.map((o) => (
+          {offices.map((o) => (
             <button
               key={o.id}
               onClick={() => setOffice(o.id)}
@@ -196,7 +200,7 @@ function Zones({ state, office }: { state: CityState; office: Office }) {
   const o = state.offices[office];
   return (
     <div className="border-b border-border pb-3">
-      <SectionTitle>Zonas eleitorais · mais votado</SectionTitle>
+      <SectionTitle>{isNational(state.id) ? "Estados · mais votado" : "Zonas eleitorais · mais votado"}</SectionTitle>
       <div className="mt-2 grid grid-cols-6 gap-px px-3">
         {state.zones.map((z, i) => {
           const zp = zoneProgress(state, i);
@@ -205,11 +209,11 @@ function Zones({ state, office }: { state: CityState; office: Office }) {
           return (
             <div
               key={z.n}
-              title={`Zona ${z.n} · ${pct(zp, 1)}% · ${lead.name}`}
+              title={`${isNational(state.id) ? UFS[z.n] : `Zona ${z.n}`} · ${pct(zp, 1)}% · ${lead.name}`}
               className="relative flex aspect-square items-end justify-start p-1 text-[10px] font-semibold text-primary-foreground"
               style={{ background: color, opacity: 0.25 + (zp / 100) * 0.75 }}
             >
-              <span className="tnum">{z.n}</span>
+              <span className="tnum">{isNational(state.id) ? UFS[z.n] : z.n}</span>
             </div>
           );
         })}

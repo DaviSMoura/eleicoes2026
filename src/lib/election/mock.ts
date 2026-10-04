@@ -15,6 +15,7 @@ export type Candidate = { id: string; name: string; party: string; number: strin
 export type City = { id: string; name: string; uf: string; electorate: number };
 
 export const CITIES: City[] = [
+  ["brasil", "Brasil", "BR", 155900000],
   ["sao-paulo", "São Paulo", "SP", 9322000],
   ["rio-de-janeiro", "Rio de Janeiro", "RJ", 5011000],
   ["brasilia", "Brasília", "DF", 2203000],
@@ -60,6 +61,9 @@ export const CITIES: City[] = [
   ["crato", "Crato", "CE", 95000],
   ["juazeiro-do-norte", "Juazeiro do Norte", "CE", 200000],
 ].map(([id, name, uf, electorate]) => ({ id, name, uf, electorate } as City));
+
+export const UFS = ["AC","AL","AP","AM","BA","CE","DF","ES","GO","MA","MT","MS","MG","PA","PB","PR","PE","PI","RJ","RN","RS","RO","RR","SC","SP","SE","TO"];
+export const isNational = (id: string) => id === "brasil";
 
 export const cityById = (id: string) => CITIES.find((c) => c.id === id);
 
@@ -230,7 +234,7 @@ export function tickCity(s: CityState, clock: number, r: () => number = Math.ran
         id: `${s.id}-z${z.n}`,
         time: clock,
         kind: "zona",
-        text: `Zona ${z.n} totalizada. ${offices.presidente.candidates[lead]?.name} foi o mais votado na zona.`,
+        text: isNational(s.id) ? `${UFS[z.n]} totalizado. ${offices.presidente.candidates[lead]?.name} venceu no estado.` : `Zona ${z.n} totalizada. ${offices.presidente.candidates[lead]?.name} foi o mais votado na zona.`,
       });
     }
   });
@@ -242,13 +246,13 @@ export function createCityState(id: string, clock: number = SIM_START): CityStat
   const city = cityById(id);
   if (!city) return null;
   const r = rngFrom(hash(id) ^ 0x9e3779b9);
-  const zoneCount = Math.max(6, Math.min(20, Math.round(city.electorate / 150000) + 5));
+  const zoneCount = isNational(id) ? 27 : Math.max(6, Math.min(20, Math.round(city.electorate / 150000) + 5));
   const zones = Array.from({ length: zoneCount }, (_, i) => {
     const noise = {} as Record<Office, number[]>;
     OFFICES.forEach(({ id: o }) => {
       noise[o] = Array.from({ length: 14 }, () => (r() - 0.5) * 0.22);
     });
-    return { n: 1 + i + (hash(id) % 200), speed: 0.75 + r() * 0.6, noise };
+    return { n: isNational(id) ? i : 1 + i + (hash(id) % 200), speed: 0.75 + r() * 0.6, noise };
   });
   const offices = {} as Record<Office, OfficeState>;
   OFFICES.forEach(({ id: o }) => (offices[o] = makeOffice(o, city, r)));
