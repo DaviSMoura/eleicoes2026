@@ -5,6 +5,8 @@ import { parseKey } from "../_shared/tse.ts";
 import { broadcast, corsHeaders, db, refreshMany, type LatestOut } from "../_shared/store.ts";
 
 const MAX_KEYS = 40;
+// Most recent points per race; plenty for a chart and far below the database row cap.
+const HISTORY_POINTS = 800;
 
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), {
@@ -69,13 +71,21 @@ Deno.serve(async (req) => {
     withoutMeta.length
       ? db.from("results_latest").select("key, data, colors").in("key", withoutMeta)
       : none,
-    historyFor.length > 0
-      ? db
+    // One query per race: a single query for all of them hit the row cap and cut the races
+    // with the largest section numbers (Brasil) down to their first point.
+    Promise.all(
+      historyFor.map((key) =>
+        db
           .from("results_history")
           .select("key, sections, progress, tse_at, valid, votes")
-          .in("key", historyFor)
-          .order("sections", { ascending: true })
-      : Promise.resolve({ data: [], error: null }),
+          .eq("key", key)
+          .order("sections", { ascending: false })
+          .limit(HISTORY_POINTS),
+      ),
+    ).then((results) => ({
+      data: results.flatMap((r) => [...(r.data ?? [])].reverse()),
+      error: results.find((r) => r.error)?.error ?? null,
+    })),
   ]);
   const failed = watchRes.error ?? metaRes.error ?? dataRes.error ?? historyRes.error;
   if (failed) return json({ error: failed.message }, 500);
