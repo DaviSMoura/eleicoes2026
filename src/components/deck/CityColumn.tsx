@@ -1,7 +1,15 @@
 import { Tip } from "./Tip";
 import { Quociente } from "./Quociente";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ChevronLeft, ChevronRight, X, MapPin, TrendingUp, TrendingDown } from "lucide-react";
+import {
+  ChevronLeft,
+  ChevronRight,
+  X,
+  MapPin,
+  Search,
+  TrendingUp,
+  TrendingDown,
+} from "lucide-react";
 import { Line, LineChart, XAxis, YAxis, CartesianGrid, Tooltip } from "recharts";
 import {
   candidatePhoto,
@@ -194,7 +202,12 @@ export function CityColumn({ place, onRemove, onMove, isFirst, isLast }: Props) 
       <div className="flex-1 overflow-y-auto">
         {race ? (
           <>
-            <Scoreboard race={race} parties={parties} ufRaces={column.ufRaces} />
+            <Scoreboard
+              key={race.meta.key}
+              race={race}
+              parties={parties}
+              ufRaces={column.ufRaces}
+            />
             {isDeputados(race) && <Quociente race={race} place={place} />}
             <Trends race={race} parties={parties} ufRaces={column.ufRaces} />
             <Evolution race={race} parties={parties} />
@@ -215,7 +228,8 @@ const isDeputados = (race: Race) => isProportional(race.meta.cargo);
 
 function Avatar({ race, id, name }: { race: Race; id: string; name: string }) {
   const [failed, setFailed] = useState(false);
-  const color = partyColor(race.colors[id] ?? 0);
+  // Deputados are too many for a color per candidate: keep their ring neutral.
+  const color = isDeputados(race) ? "var(--muted-foreground)" : partyColor(race.colors[id] ?? 0);
   return (
     <span
       className="relative grid size-8 shrink-0 place-items-center overflow-hidden rounded-full text-[11px] font-bold text-primary-foreground"
@@ -251,6 +265,14 @@ function StatusBadge({ status }: { status: string }) {
   return null;
 }
 
+const PAGE_FIRST = 10;
+const PAGE_MORE = 50;
+const normalize = (x: string) =>
+  x
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+
 function Scoreboard({
   race,
   parties,
@@ -267,18 +289,53 @@ function Scoreboard({
     .map((c) => ({ c, votes: byId.get(c.id)?.votes ?? 0, status: byId.get(c.id)?.status ?? "" }))
     .sort((a, b) => b.votes - a.votes || a.c.seq - b.c.seq);
   const isDep = isDeputados(race);
+  const [limit, setLimit] = useState(PAGE_FIRST);
+  const [query, setQuery] = useState("");
   const leaderId = data.progress > 0 ? rows[0]?.c.id : undefined;
-  const filtered = parties.length ? rows.filter((r) => parties.includes(r.c.party)) : rows;
-  const shown = isDep ? filtered.slice(0, 10) : filtered;
-  const rankOf = (id: string) => rows.findIndex((r) => r.c.id === id);
+  const rank = useMemo(() => new Map(rows.map((r, i) => [r.c.id, i])), [rows]);
+  const q = normalize(query.trim());
+  const filtered = rows.filter(
+    (r) =>
+      (!parties.length || parties.includes(r.c.party)) &&
+      (!q || normalize(`${r.c.name} ${r.c.number} ${r.c.party}`).includes(q)),
+  );
+  const searchable = rows.length > PAGE_FIRST;
+  const paged = isDep || q;
+  const shown = paged ? filtered.slice(0, limit) : filtered;
+  const rest = filtered.length - shown.length;
+  const rankOf = (id: string) => rank.get(id) ?? 0;
   const tr = trendsFor(race, ufRaces);
   const deltaOf = (id: string) => tr.items.find((t) => t.id === id)?.delta ?? 0;
 
   return (
     <div className="border-b border-border">
+      {searchable && (
+        <label className="mx-3 mt-2 flex items-center gap-2 rounded border border-input bg-background px-2 py-1 focus-within:border-primary">
+          <Search className="size-3.5 shrink-0 text-muted-foreground" />
+          <input
+            value={query}
+            onChange={(e) => {
+              setQuery(e.target.value);
+              setLimit(PAGE_FIRST);
+            }}
+            placeholder="Buscar candidato, número ou partido"
+            aria-label="Buscar candidato"
+            className="w-full bg-transparent text-xs outline-none placeholder:text-muted-foreground"
+          />
+          {query && (
+            <button
+              aria-label="Limpar busca"
+              onClick={() => setQuery("")}
+              className="text-muted-foreground hover:text-foreground"
+            >
+              <X className="size-3.5" />
+            </button>
+          )}
+        </label>
+      )}
       {shown.length === 0 && (
         <p className="px-3 py-4 text-xs text-muted-foreground">
-          Nenhum candidato deste partido para o cargo.
+          {q ? "Nenhum candidato encontrado." : "Nenhum candidato deste partido para o cargo."}
         </p>
       )}
       {shown.map(({ c, votes, status }) => {
@@ -291,11 +348,12 @@ function Scoreboard({
             key={leader ? `${c.id}-lead` : c.id}
             className={`flex items-center gap-2.5 px-3 py-2 transition-colors hover:bg-accent/60 ${leader ? "animate-flash" : ""}`}
           >
-            {isDep ? (
-              <span className="tnum w-5 text-right text-xs text-muted-foreground">{idx + 1}º</span>
-            ) : (
-              <Avatar race={race} id={c.id} name={name} />
+            {isDep && (
+              <span className="tnum w-8 shrink-0 text-right text-xs text-muted-foreground">
+                {nf.format(idx + 1)}º
+              </span>
             )}
+            <Avatar race={race} id={c.id} name={name} />
             <div className="min-w-0 flex-1">
               <div className="flex items-baseline justify-between gap-2">
                 <span className={`truncate text-[13px] ${leader ? "font-bold" : "font-medium"}`}>
@@ -330,6 +388,26 @@ function Scoreboard({
           </div>
         );
       })}
+      {paged && (rest > 0 || limit > PAGE_FIRST) && (
+        <div className="flex gap-3 px-3 pb-2 text-[11px] font-semibold">
+          {rest > 0 && (
+            <button
+              onClick={() => setLimit((n) => n + PAGE_MORE)}
+              className="text-primary hover:underline"
+            >
+              Mostrar mais ({nf.format(rest)} restantes)
+            </button>
+          )}
+          {limit > PAGE_FIRST && (
+            <button
+              onClick={() => setLimit(PAGE_FIRST)}
+              className="text-muted-foreground hover:text-foreground"
+            >
+              Mostrar menos
+            </button>
+          )}
+        </div>
+      )}
       {isDep && (
         <p className="px-3 pb-2 text-[11px] text-muted-foreground">
           Mais votados nesta abrangência. A eleição depende do quociente estadual.
@@ -520,7 +598,7 @@ function Feed({ race, place }: { race: Race; place: Place }) {
           <li className="px-3 py-2.5 text-[13px] text-muted-foreground">
             {race.data.progress > 0
               ? "Sem marcos ainda. Os destaques aparecem aqui conforme a apuração avança."
-              : "Aguardando o início da totalização, às 17h (horário de Brasília)."}
+              : "Aguardando as primeiras seções totalizadas pelo TSE."}
           </li>
         )}
         {items.map((f) => (
