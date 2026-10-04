@@ -54,7 +54,7 @@ Na aba **Senador** tem também uma pizza com as 54 vagas por partido - os dois m
 <p>
 <img src="docs/screenshots/status-governador.png" alt="Aba Governador com o mapa pintado pela cor do partido que lidera em cada estado" width="340">
 <img src="docs/screenshots/status-senador.png" alt="Aba Senador com as vagas já definidas em cada estado" width="340">
-<img src="docs/screenshots/status-deputados.png" alt="Aba Dep. Fed. com o partido que faz mais deputados em cada estado e a pizza dos 513 por partido" width="340">
+<img src="docs/screenshots/status-dep-federal.png" alt="Aba Dep. Fed. com o partido que faz mais deputados em cada estado e a pizza dos 513 por partido" width="340">
 </p>
 
 ### O placar
