@@ -84,8 +84,8 @@ export function Quociente({ race, place }: { race: Race; place: Place }) {
       <div className="mt-2 space-y-1 px-3">
         <div className="flex text-[10px] uppercase tracking-wide text-muted-foreground">
           <span className="flex-1">Partido ou federação</span>
-          <span className="w-[72px] text-right">Votos</span>
-          <span className="w-[44px] text-right">% QE</span>
+          <span className="w-[64px] text-right">Votos</span>
+          <span className="w-[56px] text-right">% QE</span>
           <span className="w-[44px] text-right">Vagas</span>
         </div>
         {shown.map((r) => (
@@ -95,10 +95,10 @@ export function Quociente({ race, place }: { race: Race; place: Place }) {
             >
               {r.label}
             </span>
-            <span className="tnum w-[72px] text-right text-muted-foreground">
+            <span className="tnum w-[64px] text-right text-muted-foreground">
               {nf.format(r.votes)}
             </span>
-            <span className="tnum w-[44px] text-right text-muted-foreground">
+            <span className="tnum w-[56px] text-right text-muted-foreground">
               {pct((r.votes / qe) * 100)}%
             </span>
             {official ? (
