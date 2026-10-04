@@ -101,7 +101,7 @@ function Deck() {
     <TooltipProvider delayDuration={150}>
       <div className="flex h-screen overflow-hidden bg-background text-foreground">
         <aside className="flex w-[60px] shrink-0 flex-col items-center gap-1 border-r border-sidebar-border bg-sidebar py-3">
-          <Tip label="Apura26 · Eleições 2026">
+          <Tip label="Eleições2026">
             <span>
               <Logo className="mb-2 size-10" />
             </span>
@@ -195,8 +195,11 @@ function Deck() {
             </button>
           </main>
           <footer className="flex h-7 shrink-0 items-center justify-between border-t border-border bg-sidebar px-3 text-[11px] text-muted-foreground">
-            <span>
-              Apura26 · fonte:{" "}
+            <span
+              className="min-w-0 truncate"
+              title="Projeto independente, sem vínculo com o TSE. Tendências e projeções são estimativas e não substituem o resultado oficial."
+            >
+              Eleições2026 · fonte:{" "}
               <a
                 href="https://resultados.tse.jus.br"
                 target="_blank"
@@ -204,13 +207,15 @@ function Deck() {
                 className="hover:text-foreground"
               >
                 TSE
-              </a>
+              </a>{" "}
+              · Projeto independente, sem vínculo com o TSE. Tendências e projeções são estimativas
+              e não substituem o resultado oficial.
             </span>
             <a
               href="https://instagram.com/davimoura.dev"
               target="_blank"
               rel="noreferrer"
-              className="hover:text-foreground"
+              className="ml-3 shrink-0 hover:text-foreground"
             >
               por <span className="font-semibold text-foreground">@davimoura.dev</span>
             </a>

@@ -1,7 +1,7 @@
 // Urna estilizada: caixa com fenda e um voto (check) entrando.
 export function Logo({ className = "" }: { className?: string }) {
   return (
-    <svg viewBox="0 0 40 40" className={className} role="img" aria-label="Apura26">
+    <svg viewBox="0 0 40 40" className={className} role="img" aria-label="Eleições2026">
       <rect width="40" height="40" rx="8" fill="var(--primary)" />
       <path
         d="M13 9.5h14v9H13z"
