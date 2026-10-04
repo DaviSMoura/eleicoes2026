@@ -13,6 +13,7 @@ import {
   fmtFull,
   fmtWhen,
   loadPlaces,
+  safeSetItem,
   useLiveStatus,
   type Place,
 } from "@/lib/election/live";
@@ -51,12 +52,16 @@ function Deck() {
 
   useEffect(() => {
     setMounted(true);
-    setLight(localStorage.getItem("apuracao26:theme") === "light");
+    try {
+      setLight(localStorage.getItem("apuracao26:theme") === "light");
+    } catch {
+      // Storage unavailable: keep the default theme.
+    }
     void loadPlaces().then((list) => setPlaces(new Map(list.map((p) => [p.id, p]))));
   }, []);
   useEffect(() => {
     document.documentElement.classList.toggle("light", light);
-    if (mounted) localStorage.setItem("apuracao26:theme", light ? "light" : "dark");
+    if (mounted) safeSetItem("apuracao26:theme", light ? "light" : "dark");
   }, [light, mounted]);
 
   useEffect(() => {
@@ -73,7 +78,7 @@ function Deck() {
   // Only save after the restored columns are in state; saving earlier would overwrite them
   // with the defaults.
   useEffect(() => {
-    if (restored) localStorage.setItem(KEY, JSON.stringify(cols));
+    if (restored) safeSetItem(KEY, JSON.stringify(cols));
   }, [cols, restored]);
 
   const shown = useMemo(

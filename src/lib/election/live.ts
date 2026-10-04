@@ -17,8 +17,8 @@ import {
 import { colorsFor } from "./colors";
 import type { HistoryPoint, Race } from "./trends";
 
-export type { HistoryPoint, Race, Trend, TrendSummary } from "./trends";
-export { roundShares, trendsFor, shareOf, validOf } from "./trends";
+export type { HistoryPoint, Race, Trend, TrendPoint, TrendSummary } from "./trends";
+export { roundShares, trendPath, trendsFor, shareOf, validOf } from "./trends";
 export { distributeSeats, qeInputFor, quocienteEleitoral } from "./quociente";
 export type { QeResult, QeGroupResult } from "./quociente";
 
@@ -175,7 +175,9 @@ function applyUpdate(u: Update) {
 // (stale-while-revalidate). Optional: any storage failure just means no instant render.
 const CACHE_PREFIX = "eleicoes2026:race:";
 const CACHE_MAX_AGE_MS = 12 * 60 * 60 * 1000;
-const CACHE_MAX_CHARS = 600_000;
+// Deputados races (candidate lists of 200-300 KB) are left out: a handful of them filled the
+// browser's ~5 MB of storage and broke every other write.
+const CACHE_MAX_CHARS = 150_000;
 
 function readCache(key: string): Race | undefined {
   try {
@@ -192,12 +194,46 @@ function readCache(key: string): Race | undefined {
   }
 }
 
-function writeCache(key: string, race: Race) {
+function clearRaceCache() {
   try {
-    const raw = JSON.stringify({ at: Date.now(), race });
-    if (raw.length <= CACHE_MAX_CHARS) localStorage.setItem(CACHE_PREFIX + key, raw);
+    for (const k of Object.keys(localStorage))
+      if (k.startsWith(CACHE_PREFIX)) localStorage.removeItem(k);
   } catch {
-    // Storage full or unavailable: the cache is only an optimization.
+    // Storage unavailable: nothing to clear.
+  }
+}
+
+// localStorage.setItem that never throws. When storage is full, the race cache (only an
+// optimization) is dropped to make room and the write is tried once more. Returns whether it saved.
+export function safeSetItem(key: string, value: string): boolean {
+  try {
+    localStorage.setItem(key, value);
+    return true;
+  } catch {
+    clearRaceCache();
+    try {
+      localStorage.setItem(key, value);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+}
+
+function writeCache(key: string, race: Race) {
+  let raw: string;
+  try {
+    raw = JSON.stringify({ at: Date.now(), race });
+  } catch {
+    return;
+  }
+  if (raw.length <= CACHE_MAX_CHARS) safeSetItem(CACHE_PREFIX + key, raw);
+  else {
+    try {
+      localStorage.removeItem(CACHE_PREFIX + key);
+    } catch {
+      // Storage unavailable.
+    }
   }
 }
 
