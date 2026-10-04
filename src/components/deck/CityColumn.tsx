@@ -1,5 +1,6 @@
 import { Tip } from "./Tip";
 import { Quociente } from "./Quociente";
+import { CandidateDetail } from "./CandidateDetail";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ChevronLeft,
@@ -71,6 +72,8 @@ export function CityColumn({ place, onRemove, onMove, isFirst, isLast }: Props) 
   const offices = officesFor(place.id);
   const [cargo, setCargo] = useState(offices[0]!.cargo);
   const [parties, setParties] = useState<string[]>([]);
+  // Candidate page open in this column; the list stays mounted (hidden) to keep its state.
+  const [selected, setSelected] = useState<string | null>(null);
   const column = useColumn(place.id);
   const race = column.races.get(cargo);
   const national = place.kind === "br";
@@ -87,138 +90,152 @@ export function CityColumn({ place, onRemove, onMove, isFirst, isLast }: Props) 
       id={`col-${place.id}`}
       className="flex h-full w-[340px] shrink-0 animate-col-in flex-col border-r border-border bg-card"
     >
-      <header className="shrink-0 border-b border-border">
-        <div className="flex items-center gap-2 px-3 pb-2 pt-3">
-          <MapPin className="size-4 shrink-0 text-muted-foreground" />
-          <div className="min-w-0 flex-1">
-            <h2 className="truncate text-[15px] font-bold leading-tight">{place.name}</h2>
-            <p className="truncate text-xs text-muted-foreground">
-              {national ? "Geral" : place.kind === "uf" ? "Estado" : place.uf}
-              {electorate > 0 && <> · {nf.format(electorate)} eleitores</>}
-            </p>
-          </div>
-          <div className="flex text-muted-foreground">
-            <Tip side="bottom" label="Mover para a esquerda">
-              <button
-                aria-label="Mover para a esquerda"
-                disabled={isFirst}
-                onClick={() => onMove(-1)}
-                className="rounded p-1 hover:bg-accent hover:text-foreground disabled:opacity-30"
-              >
-                <ChevronLeft className="size-4" />
-              </button>
-            </Tip>
-            <Tip side="bottom" label="Mover para a direita">
-              <button
-                aria-label="Mover para a direita"
-                disabled={isLast}
-                onClick={() => onMove(1)}
-                className="rounded p-1 hover:bg-accent hover:text-foreground disabled:opacity-30"
-              >
-                <ChevronRight className="size-4" />
-              </button>
-            </Tip>
-            <Tip side="bottom" label="Remover coluna">
-              <button
-                aria-label="Remover coluna"
-                onClick={onRemove}
-                className="rounded p-1 hover:bg-accent hover:text-foreground"
-              >
-                <X className="size-4" />
-              </button>
-            </Tip>
-          </div>
-        </div>
-        <div className="px-3 pb-2">
-          <div className="flex items-baseline justify-between text-xs">
-            <span className="text-muted-foreground">
-              {done ? "Totalização concluída" : "Seções totalizadas"}
-            </span>
-            <span className="tnum font-semibold">
-              <Num value={progress} format={(n) => pct(n)} />%
-            </span>
-          </div>
-          <div className="mt-1 h-[3px] w-full overflow-hidden bg-muted">
-            <div
-              className="relative h-full overflow-hidden bg-primary transition-[width] duration-700"
-              style={{ width: `${progress}%` }}
-            >
-              {!done && progress > 0 && (
-                <span className="absolute inset-y-0 left-0 w-1/3 animate-shimmer bg-gradient-to-r from-transparent via-primary-foreground/60 to-transparent" />
-              )}
+      {selected && race && (
+        <CandidateDetail
+          race={race}
+          place={place}
+          ufRaces={column.ufRaces}
+          candidateId={selected}
+          onBack={() => setSelected(null)}
+        />
+      )}
+      <div className={`min-h-0 flex-1 flex-col ${selected && race ? "hidden" : "flex"}`}>
+        <header className="shrink-0 border-b border-border">
+          <div className="flex items-center gap-2 px-3 pb-2 pt-3">
+            <MapPin className="size-4 shrink-0 text-muted-foreground" />
+            <div className="min-w-0 flex-1">
+              <h2 className="truncate text-[15px] font-bold leading-tight">{place.name}</h2>
+              <p className="truncate text-xs text-muted-foreground">
+                {national ? "Geral" : place.kind === "uf" ? "Estado" : place.uf}
+                {electorate > 0 && <> · {nf.format(electorate)} eleitores</>}
+              </p>
+            </div>
+            <div className="flex text-muted-foreground">
+              <Tip side="bottom" label="Mover para a esquerda">
+                <button
+                  aria-label="Mover para a esquerda"
+                  disabled={isFirst}
+                  onClick={() => onMove(-1)}
+                  className="rounded p-1 hover:bg-accent hover:text-foreground disabled:opacity-30"
+                >
+                  <ChevronLeft className="size-4" />
+                </button>
+              </Tip>
+              <Tip side="bottom" label="Mover para a direita">
+                <button
+                  aria-label="Mover para a direita"
+                  disabled={isLast}
+                  onClick={() => onMove(1)}
+                  className="rounded p-1 hover:bg-accent hover:text-foreground disabled:opacity-30"
+                >
+                  <ChevronRight className="size-4" />
+                </button>
+              </Tip>
+              <Tip side="bottom" label="Remover coluna">
+                <button
+                  aria-label="Remover coluna"
+                  onClick={onRemove}
+                  className="rounded p-1 hover:bg-accent hover:text-foreground"
+                >
+                  <X className="size-4" />
+                </button>
+              </Tip>
             </div>
           </div>
-          <div className="mt-1 flex justify-between text-[11px] text-muted-foreground">
-            <span className="tnum">
-              Comparecimento{" "}
-              {race && race.data.electorate > 0
-                ? `${pct((race.data.turnout / race.data.electorate) * 100, 1)}%`
-                : "-"}
-            </span>
-            <span className="tnum">
-              <Num value={race?.data.valid ?? 0} format={(n) => nf.format(Math.round(n))} /> válidos
-            </span>
-          </div>
-        </div>
-        <nav className="flex">
-          {offices.map((o) => (
-            <button
-              key={o.cargo}
-              onClick={() => {
-                setCargo(o.cargo);
-                setParties([]);
-              }}
-              className={`flex-auto whitespace-nowrap border-b-2 px-1 py-2 text-[11px] font-semibold transition-colors ${
-                cargo === o.cargo
-                  ? "border-primary text-foreground"
-                  : "border-transparent text-muted-foreground hover:bg-accent hover:text-foreground"
-              }`}
-            >
-              {o.label}
-            </button>
-          ))}
-        </nav>
-        {available.length > 1 && (
-          <div className="flex gap-1 overflow-x-auto px-3 py-2">
-            <button
-              onClick={() => setParties([])}
-              className={`shrink-0 rounded-full border px-2 py-0.5 text-[11px] font-semibold transition-colors ${parties.length === 0 ? "border-primary bg-primary text-primary-foreground" : "border-border text-muted-foreground hover:text-foreground"}`}
-            >
-              Todos
-            </button>
-            {available.map((p) => (
-              <button
-                key={p}
-                onClick={() => toggle(p)}
-                className={`shrink-0 rounded-full border px-2 py-0.5 text-[11px] font-semibold transition-colors ${parties.includes(p) ? "border-primary bg-primary/15 text-foreground" : "border-border text-muted-foreground hover:text-foreground"}`}
+          <div className="px-3 pb-2">
+            <div className="flex items-baseline justify-between text-xs">
+              <span className="text-muted-foreground">
+                {done ? "Totalização concluída" : "Seções totalizadas"}
+              </span>
+              <span className="tnum font-semibold">
+                <Num value={progress} format={(n) => pct(n)} />%
+              </span>
+            </div>
+            <div className="mt-1 h-[3px] w-full overflow-hidden bg-muted">
+              <div
+                className="relative h-full overflow-hidden bg-primary transition-[width] duration-700"
+                style={{ width: `${progress}%` }}
               >
-                {p}
+                {!done && progress > 0 && (
+                  <span className="absolute inset-y-0 left-0 w-1/3 animate-shimmer bg-gradient-to-r from-transparent via-primary-foreground/60 to-transparent" />
+                )}
+              </div>
+            </div>
+            <div className="mt-1 flex justify-between text-[11px] text-muted-foreground">
+              <span className="tnum">
+                Comparecimento{" "}
+                {race && race.data.electorate > 0
+                  ? `${pct((race.data.turnout / race.data.electorate) * 100, 1)}%`
+                  : "-"}
+              </span>
+              <span className="tnum">
+                <Num value={race?.data.valid ?? 0} format={(n) => nf.format(Math.round(n))} />{" "}
+                válidos
+              </span>
+            </div>
+          </div>
+          <nav className="flex">
+            {offices.map((o) => (
+              <button
+                key={o.cargo}
+                onClick={() => {
+                  setCargo(o.cargo);
+                  setSelected(null);
+                  setParties([]);
+                }}
+                className={`flex-auto whitespace-nowrap border-b-2 px-1 py-2 text-[11px] font-semibold transition-colors ${
+                  cargo === o.cargo
+                    ? "border-primary text-foreground"
+                    : "border-transparent text-muted-foreground hover:bg-accent hover:text-foreground"
+                }`}
+              >
+                {o.label}
               </button>
             ))}
-          </div>
-        )}
-      </header>
+          </nav>
+          {available.length > 1 && (
+            <div className="flex gap-1 overflow-x-auto px-3 py-2">
+              <button
+                onClick={() => setParties([])}
+                className={`shrink-0 rounded-full border px-2 py-0.5 text-[11px] font-semibold transition-colors ${parties.length === 0 ? "border-primary bg-primary text-primary-foreground" : "border-border text-muted-foreground hover:text-foreground"}`}
+              >
+                Todos
+              </button>
+              {available.map((p) => (
+                <button
+                  key={p}
+                  onClick={() => toggle(p)}
+                  className={`shrink-0 rounded-full border px-2 py-0.5 text-[11px] font-semibold transition-colors ${parties.includes(p) ? "border-primary bg-primary/15 text-foreground" : "border-border text-muted-foreground hover:text-foreground"}`}
+                >
+                  {p}
+                </button>
+              ))}
+            </div>
+          )}
+        </header>
 
-      <div className="flex-1 overflow-y-auto">
-        {race ? (
-          <>
-            <Scoreboard
-              key={race.meta.key}
-              race={race}
-              parties={parties}
-              ufRaces={column.ufRaces}
-            />
-            {isDeputados(race) && <Quociente race={race} place={place} />}
-            <Trends race={race} parties={parties} ufRaces={column.ufRaces} />
-            <Evolution race={race} parties={parties} />
-            {national && <States br={race} ufRaces={column.ufRaces} />}
-            <Feed race={race} place={place} />
-          </>
-        ) : (
-          <p className="px-3 py-6 text-center text-xs text-muted-foreground">
-            Carregando dados do TSE...
-          </p>
-        )}
+        <div className="flex-1 overflow-y-auto">
+          {race ? (
+            <>
+              <Scoreboard
+                key={race.meta.key}
+                race={race}
+                parties={parties}
+                ufRaces={column.ufRaces}
+                onSelect={setSelected}
+              />
+              {isDeputados(race) && <Quociente race={race} place={place} />}
+              <Trends race={race} parties={parties} ufRaces={column.ufRaces} />
+              <Evolution race={race} parties={parties} />
+              {national && <States br={race} ufRaces={column.ufRaces} />}
+              <Feed race={race} place={place} />
+            </>
+          ) : (
+            <p className="px-3 py-6 text-center text-xs text-muted-foreground">
+              Carregando dados do TSE...
+            </p>
+          )}
+        </div>
       </div>
     </section>
   );
@@ -277,10 +294,12 @@ function Scoreboard({
   race,
   parties,
   ufRaces,
+  onSelect,
 }: {
   race: Race;
   parties: string[];
   ufRaces: Race[];
+  onSelect: (id: string) => void;
 }) {
   const { meta, data } = race;
   const valid = validOf(data);
@@ -346,7 +365,17 @@ function Scoreboard({
         return (
           <div
             key={leader ? `${c.id}-lead` : c.id}
-            className={`flex items-center gap-2.5 px-3 py-2 transition-colors hover:bg-accent/60 ${leader ? "animate-flash" : ""}`}
+            role="button"
+            tabIndex={0}
+            aria-label={`Ver detalhes de ${name}`}
+            onClick={() => onSelect(c.id)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                onSelect(c.id);
+              }
+            }}
+            className={`flex cursor-pointer items-center gap-2.5 px-3 py-2 outline-none transition-colors hover:bg-accent/60 focus-visible:bg-accent/60 ${leader ? "animate-flash" : ""}`}
           >
             {isDep && (
               <span className="tnum w-8 shrink-0 text-right text-xs text-muted-foreground">

@@ -23,7 +23,7 @@ export const HISTORY_TOP = 12;
 
 // Bump whenever normalizeResult's output changes: stored races are then refetched once,
 // since their etags are kept per version.
-const NORMALIZE_VERSION = 2;
+const NORMALIZE_VERSION = 3;
 export const raceStateId = (key: string) => `${resultUrl(key)}#v${NORMALIZE_VERSION}`;
 
 export type Broadcast = { topic: string; event: string; payload: unknown };

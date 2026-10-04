@@ -77,10 +77,13 @@ export const photoUrl = (ele: string, uf: string, sqcand: string) =>
 
 // ---------- raw TSE shapes (only the fields we read) ----------
 
+type RawMate = { tp: string; nm: string; nmu: string; sgp?: string };
 type RawCand = {
   n: string;
   sqcand: string;
-  nmu: string;
+  nm?: string; // full name
+  nmu: string; // name on the ballot
+  vs?: RawMate[]; // vice (tp "v") or senate alternates (tp "s1", "s2")
   seq?: string;
   e?: string;
   st?: string;
@@ -92,12 +95,14 @@ type RawCand = {
 type RawPar = {
   n?: string;
   sg: string;
+  nm?: string;
   nfed?: string;
   tvtn?: string;
   tvtl?: string;
   cand: RawCand[];
 };
-type RawAgr = { n?: string; tp?: string; vag?: string; par: RawPar[] };
+// tp: "i" party alone, "c" coalition (nm/com name it), "f" federation.
+type RawAgr = { n?: string; tp?: string; nm?: string; com?: string; vag?: string; par: RawPar[] };
 type RawFed = { n: string; sg: string };
 type RawCarg = {
   cd: string;
@@ -140,7 +145,16 @@ export type CandidateMeta = {
   seq: number;
   born: string; // yyyy-mm-dd, breaks ties in favor of the older candidate (art. 110)
   group: string; // agremiação that competes for seats: the federation, or the party itself
+  // Details for the candidate page (absent in rows stored before they existed).
+  fullName?: string;
+  partyName?: string;
+  coalition?: { name: string; parties: string };
+  mates?: RunningMate[];
 };
+
+export type RunningMate = { role: string; name: string; party: string };
+
+const MATE_ROLES: Record<string, string> = { v: "Vice", s1: "1º suplente", s2: "2º suplente" };
 
 // A party or a federation (which competes as a single party in proportional races).
 export type GroupMeta = { id: string; label: string; federation: boolean };
@@ -210,7 +224,14 @@ export function normalizeResult(key: string, raw: RawResult): NormalizedRace {
       if (!groups.has(group))
         groups.set(group, { id: group, label: fed ?? par.sg, federation: !!fed });
       groupVotes.set(group, (groupVotes.get(group) ?? 0) + toInt(par.tvtn) + toInt(par.tvtl));
+      const coalition =
+        agr.tp === "c" && agr.nm ? { name: agr.nm, parties: agr.com ?? "" } : undefined;
       for (const c of par.cand) {
+        const mates = (c.vs ?? []).map((m) => ({
+          role: MATE_ROLES[m.tp] ?? m.tp,
+          name: m.nmu || m.nm,
+          party: m.sgp ?? "",
+        }));
         candidates.push({
           id: c.sqcand,
           name: c.nmu,
@@ -219,6 +240,10 @@ export function normalizeResult(key: string, raw: RawResult): NormalizedRace {
           seq: toInt(c.seq),
           born: c.dt ? c.dt.split("/").reverse().join("-") : "",
           group,
+          ...(c.nm ? { fullName: c.nm } : {}),
+          ...(par.nm ? { partyName: par.nm } : {}),
+          ...(coalition ? { coalition } : {}),
+          ...(mates.length ? { mates } : {}),
         });
         votes.push([c.sqcand, toInt(c.vap), c.st ?? ""]);
         if (c.dvt && c.dvt !== "Válido") blocked.push(c.sqcand);

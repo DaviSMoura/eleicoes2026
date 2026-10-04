@@ -91,6 +91,28 @@ describe("normalizeResult", () => {
     expect(top[1]).toBeGreaterThan(100000);
   });
 
+  it("keeps the candidate details used by the candidate page", () => {
+    const pres = normalizeResult("br-c0001-e006257", raw(brPres)).meta.candidates;
+    const flavio = pres.find((c) => c.name === "FLAVIO BOLSONARO")!;
+    expect(flavio.fullName).toBe("FLAVIO NANTES BOLSONARO");
+    expect(flavio.partyName).toBe("PARTIDO LIBERAL");
+    expect(flavio.born).toBe("1981-04-30");
+    expect(flavio.mates).toEqual([{ role: "Vice", name: "ALFREDO GASPAR", party: "PL" }]);
+
+    const gov = normalizeResult("sp-c0003-e006259", raw(spGov)).meta.candidates;
+    const tarcisio = gov.find((c) => c.name === "TARCÍSIO")!;
+    expect(tarcisio.coalition?.name).toBe("CORAGEM PARA SEGUIR AVANÇANDO");
+    expect(tarcisio.coalition?.parties).toContain("REPUBLICANOS");
+    expect(tarcisio.mates?.[0]).toEqual({ role: "Vice", name: "FELICIO RAMUTH", party: "MDB" });
+
+    const sen = normalizeResult("sp-c0005-e006259", raw(spSen)).meta.candidates;
+    const prado = sen.find((c) => c.name === "ANDRÉ DO PRADO")!;
+    expect(prado.mates?.map((m) => m.role)).toEqual(["1º suplente", "2º suplente"]);
+
+    const dep = normalizeResult("sp71072-c0006-e006259", raw(capDepFed)).meta.candidates;
+    expect(dep.every((c) => c.mates === undefined)).toBe(true);
+  });
+
   it("ignores an empty TSE time", () => {
     expect(tseTime("", "")).toBe("");
   });
