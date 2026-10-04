@@ -41,17 +41,24 @@ export const OFFICES: Office[] = [
   { cargo: CARGO.presidente, label: "Presidente" },
   { cargo: CARGO.governador, label: "Governador" },
   { cargo: CARGO.senador, label: "Senador" },
-  { cargo: CARGO.depFederal, label: "Dep. Federal" },
+  { cargo: CARGO.depFederal, label: "Dep. Fed." },
 ];
+const DEP_ESTADUAL: Office = { cargo: CARGO.depEstadual, label: "Dep. Est." };
+// The Federal District elects deputados distritais instead of estaduais.
+const DEP_DISTRITAL: Office = { cargo: CARGO.depDistrital, label: "Dep. Dist." };
 
 export const officesFor = (placeId: string): Office[] => {
   const kind = placeKind(placeId);
-  return kind === "br" || kind === "zz" ? OFFICES.slice(0, 1) : OFFICES;
+  if (kind === "br" || kind === "zz") return OFFICES.slice(0, 1);
+  return [...OFFICES, placeId.startsWith("df") ? DEP_DISTRITAL : DEP_ESTADUAL];
 };
 
+// Presidente per UF plus abroad ("zz"): feeds the Brasil column's projection and states grid.
 const NATIONAL_UF_KEYS = [...UFS, "zz"].map((uf) => keyFor(uf, CARGO.presidente));
 
-export const CARGO_DEP_FEDERAL = CARGO.depFederal;
+// Proportional races (deputados): seats are distributed by the quociente eleitoral.
+export const isProportional = (cargo: number) =>
+  cargo === CARGO.depFederal || cargo === CARGO.depEstadual || cargo === CARGO.depDistrital;
 
 const LOWER_WORDS = new Set(["de", "da", "do", "das", "dos", "e"]);
 

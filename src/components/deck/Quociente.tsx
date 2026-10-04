@@ -28,8 +28,8 @@ export function Quociente({ race, place }: { race: Race; place: Place }) {
     return (
       <Section badge={false}>
         <p className="px-3 pt-1 text-xs text-muted-foreground">
-          As vagas de deputado federal são distribuídas por estado. Abra a coluna do estado (
-          {place.uf}) para ver a simulação do quociente eleitoral.
+          As vagas de {meta.office.toLowerCase()} são distribuídas por estado. Abra a coluna do
+          estado ({place.uf}) para ver a simulação do quociente eleitoral.
         </p>
       </Section>
     );
