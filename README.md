@@ -3,6 +3,8 @@
 Painel da apuração das eleições de 2026 em colunas lado a lado, no estilo TweetDeck.
 Cada coluna é o Brasil, um estado ou um município, com placar, tendências, evolução e marcos da apuração.
 
+No ar em **[eleicoes2026-ashy.vercel.app](https://eleicoes2026-ashy.vercel.app)**.
+
 ## Como os dados chegam
 
 Os navegadores nunca consultam o TSE diretamente.
