@@ -387,8 +387,28 @@ function release(keys: string[], topics: string[]) {
   }, RELEASE_DELAY_MS);
 }
 
+// On load, drop cache entries that are expired or bigger than the cap (written before it
+// existed), so old sessions do not keep the browser's storage nearly full.
+function sweepRaceCache() {
+  try {
+    for (const k of Object.keys(localStorage)) {
+      if (!k.startsWith(CACHE_PREFIX)) continue;
+      const raw = localStorage.getItem(k);
+      if (!raw || raw.length > CACHE_MAX_CHARS) {
+        localStorage.removeItem(k);
+        continue;
+      }
+      const { at } = JSON.parse(raw) as { at?: number };
+      if (!at || Date.now() - at > CACHE_MAX_AGE_MS) localStorage.removeItem(k);
+    }
+  } catch {
+    // Storage unavailable or an entry unreadable: the cache is only an optimization.
+  }
+}
+
 // Heartbeat keeps our races "watched" for the poller and heals any missed message.
 if (typeof window !== "undefined") {
+  sweepRaceCache();
   setInterval(() => {
     const keys = [...refs.keys()];
     // While Realtime is up, updates arrive by push: the heartbeat only keeps races watched.
