@@ -1,26 +1,25 @@
-# Election Pulse Tracker
+# Apura26
 
-Quero criar um site que mostre a apuração das eleições de 2026. Não quero focar agora em todos os dados, porque já sei exatamente como ter, mas quero focar em construir o protótipo, mockado.
+Painel da apuração das eleições de 2026 em colunas lado a lado, no estilo TweetDeck.
+Cada coluna é o Brasil, um estado ou um município, com placar, tendências, evolução e marcos da apuração.
 
-A ideia é que eu consiga fazer algo como um tweet deck, onde eu possa ir adicionando cidades e ele vai criando timelines lado a lado, mostrando ali como está indo a apuração, quão alto já foi, etc. Essa é a ideia.
+## Como os dados chegam
 
-This project was built with [Lovable](https://lovable.dev).
+Os navegadores nunca consultam o TSE diretamente.
+Um único poller (`supabase/functions/poll-tse`) roda a cada 5 segundos e faz requisições condicionais ao CDN de resultados do TSE.
+Ele usa os índices de abrangência (`-ab.json`) para descobrir o que mudou e só baixa os resultados das disputas que alguém está acompanhando.
+Os resultados ficam no Postgres (`results_latest` e `results_history`) e cada mudança é enviada aos navegadores via Supabase Realtime.
+A função `watch` entrega o estado atual e o histórico quando uma coluna é aberta.
 
-## Build with Lovable
-
-Continue developing this project in the [Lovable editor](https://lovable.dev/projects/b7b015ad-7943-4de6-bb9e-3e6416bcc5bc).
-
-- **Ship faster**: describe what you want to build and Lovable handles the code.
-- **Stay in sync**: every change made in Lovable is committed straight to this repository.
-- **Full ownership**: this code is yours. Push to `main` on GitHub and your changes sync back into Lovable, ready for your next prompt.
-
-## Development
-
-Prefer working locally? You need Node.js and npm — [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating).
+## Desenvolvimento
 
 ```sh
-git clone <this-repository-url>
-cd <repository-name>
-npm i
-npm run dev
+bun install
+bun run dev
 ```
+
+Outros comandos:
+
+- `bun run test` roda os testes, que usam arquivos reais do TSE em `src/lib/election/__fixtures__/`.
+- `bun run lint` roda o ESLint e o Prettier.
+- `bun scripts/gen-places.ts` regenera a lista de lugares a partir da configuração do TSE.

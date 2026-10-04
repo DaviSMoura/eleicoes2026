@@ -442,10 +442,10 @@ function States({ br, ufRaces }: { br: Race; ufRaces: Race[] }) {
             <div
               key={r.meta.key}
               title={`${label} · ${pct(r.data.progress, 1)}% · ${name}`}
-              className="relative flex aspect-square items-end justify-start p-1 text-[10px] font-semibold text-primary-foreground"
+              className={`relative flex aspect-square items-end justify-start p-1 text-[10px] font-semibold ${counted ? "text-primary-foreground" : "text-muted-foreground"}`}
               style={{
                 background: color,
-                opacity: 0.25 + (r.data.progress / 100) * 0.75,
+                opacity: counted ? 0.25 + (r.data.progress / 100) * 0.75 : 1,
                 transition: "opacity .7s, background-color .7s",
               }}
             >
@@ -569,6 +569,7 @@ function Trends({ race, parties, ufRaces }: { race: Race; parties: string[]; ufR
   const tr = trendsFor(race, ufRaces);
   const byId = new Map(tr.items.map((t) => [t.id, t]));
   const isDep = isDeputados(race);
+  const started = race.data.progress > 0;
   let list = meta.candidates;
   if (parties.length) list = list.filter((c) => parties.includes(c.party));
   list = [...list]
@@ -624,16 +625,29 @@ function Trends({ race, parties, ufRaces }: { race: Race; parties: string[]; ufR
                 label={`Margem de ±${pct(t.margin, 1)} p.p., diminui conforme a apuração avança`}
               >
                 <span className="tnum w-[86px] text-right text-muted-foreground">
-                  {pct(t.projected, 1)}% <span className="text-[10px]">±{pct(t.margin, 1)}</span>
+                  {started ? (
+                    <>
+                      {pct(t.projected, 1)}%{" "}
+                      <span className="text-[10px]">±{pct(t.margin, 1)}</span>
+                    </>
+                  ) : (
+                    "-"
+                  )}
                 </span>
               </Tip>
               {!isDep && (
                 <span className="tnum w-[64px] text-right font-semibold">
-                  <Num
-                    value={t.win * 100}
-                    format={(n) => (n > 99.4 ? ">99" : Math.round(n).toString())}
-                  />
-                  %
+                  {started ? (
+                    <>
+                      <Num
+                        value={t.win * 100}
+                        format={(n) => (n > 99.4 ? ">99" : Math.round(n).toString())}
+                      />
+                      %
+                    </>
+                  ) : (
+                    "-"
+                  )}
                 </span>
               )}
             </div>

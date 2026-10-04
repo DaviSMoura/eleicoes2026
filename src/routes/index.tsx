@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Plus, Search, Sun, Moon } from "lucide-react";
 import { Logo } from "@/components/deck/Logo";
 import { Tip } from "@/components/deck/Tip";
@@ -7,7 +7,8 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { CityColumn } from "@/components/deck/CityColumn";
 import {
   DEFAULT_PLACES,
-  fmtTime,
+  fmtFull,
+  fmtWhen,
   loadPlaces,
   useLiveStatus,
   type Place,
@@ -40,7 +41,7 @@ function Deck() {
   const [cols, setCols] = useState<string[]>(DEFAULT_PLACES);
   const [places, setPlaces] = useState<Map<string, Place> | null>(null);
   const [adding, setAdding] = useState(false);
-  const loaded = useRef(false);
+  const [restored, setRestored] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [light, setLight] = useState(false);
   const live = useLiveStatus();
@@ -62,11 +63,13 @@ function Deck() {
     } catch {
       // Storage indisponível ou valor corrompido: mantém as colunas padrão.
     }
-    loaded.current = true;
+    setRestored(true);
   }, []);
+  // Only save after the restored columns are in state; saving earlier would overwrite them
+  // with the defaults.
   useEffect(() => {
-    if (loaded.current) localStorage.setItem(KEY, JSON.stringify(cols));
-  }, [cols]);
+    if (restored) localStorage.setItem(KEY, JSON.stringify(cols));
+  }, [cols, restored]);
 
   const shown = useMemo(
     () => (places ? cols.map((id) => places.get(id)).filter((p): p is Place => !!p) : []),
@@ -143,19 +146,19 @@ function Deck() {
               live.error
                 ? `Sem conexão com o servidor: ${live.error}`
                 : live.live
-                  ? `Ao vivo · última atualização do TSE às ${fmtTime(live.lastTseAt) || "-"}`
+                  ? `Ao vivo · última atualização do TSE em ${fmtFull(live.lastTseAt) || "-"}`
                   : "Conectando..."
             }
           >
             <span className="mt-1 flex w-12 flex-col items-center gap-1 rounded-md py-1.5 text-muted-foreground">
-              <span className="flex items-center gap-1 text-[10px] font-semibold uppercase">
+              <span className="flex items-center gap-1 whitespace-nowrap text-[9px] font-semibold uppercase tracking-tight">
                 <span
                   className={`size-1.5 rounded-full ${live.error ? "bg-muted-foreground" : live.live ? "bg-destructive animate-pulse" : "bg-muted-foreground animate-pulse"}`}
                 />
                 {live.live && !live.error ? "Ao vivo" : "..."}
               </span>
               <span className="tnum text-[11px] font-semibold">
-                {fmtTime(live.lastTseAt) || "--:--"}
+                {fmtWhen(live.lastTseAt) || "--:--"}
               </span>
             </span>
           </Tip>

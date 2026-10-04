@@ -75,6 +75,20 @@ const timeFmt = new Intl.DateTimeFormat("pt-BR", {
 });
 export const fmtTime = (iso: string) => (iso ? timeFmt.format(new Date(iso)) : "");
 
+const dayFmt = new Intl.DateTimeFormat("pt-BR", {
+  day: "2-digit",
+  month: "2-digit",
+  timeZone: "America/Sao_Paulo",
+});
+// "17:42" when it happened today (Brasília), otherwise "03/10".
+export const fmtWhen = (iso: string) => {
+  if (!iso) return "";
+  const d = new Date(iso);
+  return dayFmt.format(d) === dayFmt.format(new Date()) ? timeFmt.format(d) : dayFmt.format(d);
+};
+export const fmtFull = (iso: string) =>
+  iso ? `${dayFmt.format(new Date(iso))} às ${timeFmt.format(new Date(iso))}` : "";
+
 export const candidatePhoto = (meta: RaceMeta, id: string) =>
   photoUrl(meta.ele, meta.cargo === CARGO.presidente ? "br" : meta.uf, id);
 
@@ -162,6 +176,21 @@ async function watch(keys: string[], withHistory: boolean) {
   }
 }
 
+const joined = new Set<string>();
+const pendingResync = new Set<string>();
+let resyncTimer: ReturnType<typeof setTimeout> | undefined;
+
+// A reconnect rejoins every channel at once; batch them into a single watch call.
+function queueResync(key: string) {
+  pendingResync.add(key);
+  clearTimeout(resyncTimer);
+  resyncTimer = setTimeout(() => {
+    const keys = [...pendingResync].filter((k) => refs.has(k));
+    pendingResync.clear();
+    if (keys.length) void watch(keys, true).catch(() => undefined);
+  }, 300);
+}
+
 function subscribe(key: string) {
   const ch = supabase
     .channel(`res:${key}`)
@@ -172,8 +201,9 @@ function subscribe(key: string) {
           status = { ...status, live: true };
           emit();
         }
-        // (Re)joined: fetch what we may have missed while disconnected.
-        if (races.has(key)) void watch([key], true).catch(() => undefined);
+        // Rejoined after a drop: fetch what we may have missed while disconnected.
+        if (joined.has(key)) queueResync(key);
+        joined.add(key);
       } else if (s === "CHANNEL_ERROR" || s === "TIMED_OUT" || s === "CLOSED") {
         if (status.live && s !== "CLOSED") {
           status = { ...status, live: false };
@@ -186,7 +216,8 @@ function subscribe(key: string) {
 
 function retain(keys: string[], history: string[]) {
   history.forEach((k) => historyWanted.add(k));
-  const fresh = keys.filter((k) => (refs.get(k) ?? 0) === 0);
+  // Keys still subscribed (released moments ago, e.g. a remount) need no new fetch.
+  const fresh = keys.filter((k) => (refs.get(k) ?? 0) === 0 && !channels.has(k));
   keys.forEach((k) => refs.set(k, (refs.get(k) ?? 0) + 1));
   fresh.forEach(subscribe);
   if (fresh.length) void watch(fresh, true).catch(() => setTimeout(() => retry(fresh), 5000));
@@ -197,20 +228,27 @@ function retry(keys: string[]) {
   if (still.length) void watch(still, true).catch(() => setTimeout(() => retry(still), 5000));
 }
 
+const RELEASE_DELAY_MS = 2000;
+
+// Drop channels and data only if nobody re-retains the key shortly after
+// (React remounts, moving a column), so those cases cost no extra request.
 function release(keys: string[]) {
   for (const k of keys) {
     const n = (refs.get(k) ?? 0) - 1;
-    if (n > 0) {
-      refs.set(k, n);
-      continue;
-    }
-    refs.delete(k);
-    historyWanted.delete(k);
-    const ch = channels.get(k);
-    if (ch) void supabase.removeChannel(ch);
-    channels.delete(k);
-    races.delete(k);
+    if (n > 0) refs.set(k, n);
+    else refs.delete(k);
   }
+  setTimeout(() => {
+    for (const k of keys) {
+      if (refs.has(k)) continue;
+      historyWanted.delete(k);
+      joined.delete(k);
+      const ch = channels.get(k);
+      if (ch) void supabase.removeChannel(ch);
+      channels.delete(k);
+      races.delete(k);
+    }
+  }, RELEASE_DELAY_MS);
 }
 
 // Heartbeat keeps our races "watched" for the poller and heals any missed message.
