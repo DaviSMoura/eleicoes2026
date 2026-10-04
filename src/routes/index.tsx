@@ -6,6 +6,7 @@ import { Tip } from "@/components/deck/Tip";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { CityColumn } from "@/components/deck/CityColumn";
 import { Termo } from "@/components/deck/Termo";
+import { GitHubMark } from "@/components/deck/GitHubMark";
 import {
   DEFAULT_PLACES,
   fmtFull,
@@ -18,13 +19,13 @@ import {
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Apuração 2026 — painel por cidade" },
+      { title: "Eleições2026 - apuração ao vivo" },
       {
         name: "description",
         content:
           "Acompanhe a apuração das eleições 2026 lado a lado, cidade por cidade: presidente, governador, senador e deputados.",
       },
-      { property: "og:title", content: "Apuração 2026 — painel por cidade" },
+      { property: "og:title", content: "Eleições2026 - apuração ao vivo" },
       {
         property: "og:description",
         content: "Colunas por cidade com placar, evolução, estados e atualizações da apuração.",
@@ -221,6 +222,16 @@ function Deck() {
                 className="hover:text-foreground"
               >
                 por <span className="font-semibold text-foreground">@davimoura.dev</span>
+              </a>
+              <a
+                href="https://github.com/DaviSMoura/eleicoes2026"
+                target="_blank"
+                rel="noreferrer"
+                aria-label="Código-fonte no GitHub"
+                className="flex items-center gap-1 hover:text-foreground"
+              >
+                <GitHubMark className="size-3.5" />
+                <span className="font-semibold text-foreground">GitHub</span>
               </a>
             </span>
           </footer>

@@ -19,7 +19,6 @@ import {
   raceStateId,
   refreshRace,
   saveState,
-  type Broadcast,
 } from "../_shared/store.ts";
 
 const WATCH_WINDOW_MS = 3 * 60 * 1000;
@@ -113,9 +112,9 @@ Deno.serve(async (req) => {
       return !isMunicipal(abr) || changed.has(abr) || stale(key);
     });
 
-    const messages = (await mapLimit(due, 8, refreshRace)).filter(
-      (m): m is Broadcast => m !== null,
-    );
+    const messages = (await mapLimit(due, 8, refreshRace))
+      .filter((r) => r !== null)
+      .map((r) => r.message);
     await broadcast(messages);
     const summary = `watched=${watched.length} due=${due.length} updated=${messages.length} in ${Date.now() - started}ms`;
     console.log(summary);

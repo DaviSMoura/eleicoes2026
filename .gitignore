@@ -37,3 +37,10 @@ dist-ssr
 # Local tool artifacts
 deno.lock
 supabase/.temp/
+
+# Local environment
+.env
+.env.local
+
+# Vercel build output
+.vercel

@@ -8,7 +8,7 @@ import {
   db,
   mapLimit,
   refreshRace,
-  type Broadcast,
+  type LatestOut,
 } from "../_shared/store.ts";
 
 const MAX_KEYS = 40;
@@ -40,39 +40,34 @@ Deno.serve(async (req) => {
   }
   if (keys.length === 0) return json({ races: {}, history: {} });
 
+  // One round trip: the function and the database are in different regions.
   const now = new Date().toISOString();
-  const { error: wErr } = await db
-    .from("watch")
-    .upsert(keys.map((key) => ({ key, last_seen_at: now })));
-  if (wErr) return json({ error: wErr.message }, 500);
+  const [watchRes, latestRes, historyRes] = await Promise.all([
+    db.from("watch").upsert(keys.map((key) => ({ key, last_seen_at: now }))),
+    db.from("results_latest").select("key, meta, data, colors").in("key", keys),
+    historyFor.length > 0
+      ? db
+          .from("results_history")
+          .select("key, sections, progress, tse_at, valid, votes")
+          .in("key", historyFor)
+          .order("sections", { ascending: true })
+      : Promise.resolve({ data: [], error: null }),
+  ]);
+  const failed = watchRes.error ?? latestRes.error ?? historyRes.error;
+  if (failed) return json({ error: failed.message }, 500);
 
-  const select = () => db.from("results_latest").select("key, meta, data, colors").in("key", keys);
-  let { data: latest, error } = await select();
-  if (error) return json({ error: error.message }, 500);
+  const races: Record<string, LatestOut> = {};
+  for (const r of (latestRes.data ?? []) as LatestOut[]) races[r.key] = r;
 
-  const have = new Set((latest ?? []).map((r) => r.key as string));
-  const missing = keys.filter((k) => !have.has(k));
+  // First viewer of a race: fetch it from the TSE now and answer with what was stored.
+  const missing = keys.filter((k) => !races[k]);
   if (missing.length > 0) {
-    const msgs = (await mapLimit(missing, 8, refreshRace)).filter(
-      (m): m is Broadcast => m !== null,
-    );
-    await broadcast(msgs);
-    ({ data: latest, error } = await select());
-    if (error) return json({ error: error.message }, 500);
+    const fresh = (await mapLimit(missing, 8, refreshRace)).filter((r) => r !== null);
+    for (const { row } of fresh) races[row.key] = row;
+    await broadcast(fresh.map((r) => r.message));
   }
 
   const history: Record<string, unknown[]> = {};
-  if (historyFor.length > 0) {
-    const { data: rows, error: hErr } = await db
-      .from("results_history")
-      .select("key, sections, progress, tse_at, valid, votes")
-      .in("key", historyFor)
-      .order("sections", { ascending: true });
-    if (hErr) return json({ error: hErr.message }, 500);
-    for (const r of rows ?? []) (history[r.key as string] ??= []).push(r);
-  }
-
-  const races: Record<string, unknown> = {};
-  for (const r of latest ?? []) races[r.key as string] = r;
+  for (const r of historyRes.data ?? []) (history[r.key as string] ??= []).push(r);
   return json({ races, history });
 });

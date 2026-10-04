@@ -104,67 +104,89 @@ const historyVotes = (data: RaceData) =>
     .slice(0, HISTORY_TOP)
     .map(([id, v]) => [id, v]);
 
-// Fetches one race and, when it changed, stores it and returns the realtime message.
-export async function refreshRace(key: string): Promise<Broadcast | null> {
+export type LatestOut = {
+  key: string;
+  meta: NormalizedRace["meta"];
+  data: RaceData;
+  colors: Record<string, number>;
+};
+export type Refreshed = { message: Broadcast; row: LatestOut };
+
+const check = ({ error }: { error: unknown }) => {
+  if (error) throw error;
+};
+
+// Fetches one race and, when it changed, stores it and returns the realtime message plus the
+// stored row. Database round trips run in parallel: the function and the database sit in
+// different regions, so each sequential query costs a full trip.
+export async function refreshRace(key: string): Promise<Refreshed | null> {
   const url = resultUrl(key);
   const stateId = raceStateId(key);
-  const states = await getStates([stateId]);
-  const got = await fetchTse<RawResult>(url, states.get(stateId), stateId);
+  const [got, prevRes] = await Promise.all([
+    getStates([stateId]).then((states) => fetchTse<RawResult>(url, states.get(stateId), stateId)),
+    db.from("results_latest").select("key, sections, colors, colors_frozen").eq("key", key),
+  ]);
   const now = new Date().toISOString();
   if (got.kind !== "new") {
     if (got.kind === "same" || got.kind === "missing")
       await saveState({ id: stateId, checked_at: now });
     return null;
   }
+  check(prevRes);
+  const prev = (prevRes.data as LatestRow[])[0];
   const race: NormalizedRace = normalizeResult(key, got.body);
-
-  const { data: prevRows, error: prevErr } = await db
-    .from("results_latest")
-    .select("key, sections, colors, colors_frozen")
-    .eq("key", key);
-  if (prevErr) throw prevErr;
-  const prev = (prevRows as LatestRow[])[0];
 
   const frozen = prev?.colors_frozen ?? false;
   const colors = frozen && prev ? prev.colors : assignColors(race.meta, race.data);
   const colorsFrozen = frozen || race.data.progress >= COLOR_FREEZE_PROGRESS;
 
-  const { error: upErr } = await db.from("results_latest").upsert({
-    key,
-    ele: race.meta.ele,
-    abr: race.meta.abr,
-    uf: race.meta.uf,
-    cargo: race.meta.cargo,
-    seats: race.meta.seats,
-    idg: race.data.idg,
-    sections: race.data.sections,
-    progress: race.data.progress,
-    tse_at: race.data.tseAt || null,
-    meta: race.meta,
-    data: race.data,
-    colors,
-    colors_frozen: colorsFrozen,
-    updated_at: now,
-  });
-  if (upErr) throw upErr;
-
-  if (!prev || prev.sections !== race.data.sections) {
-    const { error: hErr } = await db.from("results_history").upsert(
-      {
+  const writes: PromiseLike<void>[] = [
+    db
+      .from("results_latest")
+      .upsert({
         key,
+        ele: race.meta.ele,
+        abr: race.meta.abr,
+        uf: race.meta.uf,
+        cargo: race.meta.cargo,
+        seats: race.meta.seats,
+        idg: race.data.idg,
         sections: race.data.sections,
         progress: race.data.progress,
         tse_at: race.data.tseAt || null,
-        valid: race.data.valid,
-        votes: historyVotes(race.data),
-      },
-      { onConflict: "key,sections", ignoreDuplicates: true },
+        meta: race.meta,
+        data: race.data,
+        colors,
+        colors_frozen: colorsFrozen,
+        updated_at: now,
+      })
+      .then(check),
+    saveState({ id: stateId, etag: got.etag, checked_at: now, retry_after: null }),
+  ];
+  if (!prev || prev.sections !== race.data.sections) {
+    writes.push(
+      db
+        .from("results_history")
+        .upsert(
+          {
+            key,
+            sections: race.data.sections,
+            progress: race.data.progress,
+            tse_at: race.data.tseAt || null,
+            valid: race.data.valid,
+            votes: historyVotes(race.data),
+          },
+          { onConflict: "key,sections", ignoreDuplicates: true },
+        )
+        .then(check),
     );
-    if (hErr) throw hErr;
   }
+  await Promise.all(writes);
 
-  await saveState({ id: stateId, etag: got.etag, checked_at: now, retry_after: null });
-  return { topic: `res:${key}`, event: "update", payload: { key, data: race.data, colors } };
+  return {
+    message: { topic: `res:${key}`, event: "update", payload: { key, data: race.data, colors } },
+    row: { key, meta: race.meta, data: race.data, colors },
+  };
 }
 
 export async function broadcast(messages: Broadcast[]) {

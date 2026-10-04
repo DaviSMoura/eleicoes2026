@@ -2,7 +2,7 @@
 // (Supabase), never from the TSE directly, and updates are pushed over Realtime.
 import { useEffect, useMemo, useSyncExternalStore } from "react";
 
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/lib/supabase";
 import {
   CARGO,
   UFS,
