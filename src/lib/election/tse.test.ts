@@ -163,7 +163,10 @@ describe("topicsFor", () => {
     expect(topicsFor("sp71072-c0003-e006259")).not.toContain("gov-uf");
     expect(topicsFor("sp-c0007-e006259")).toContain("est-uf");
     expect(topicsFor("df-c0008-e006259")).toContain("est-uf");
-    expect(topicsFor("sp71072-c0007-e006259")).toEqual(["abr:sp71072", "res:sp71072-c0007-e006259"]);
+    expect(topicsFor("sp71072-c0007-e006259")).toEqual([
+      "abr:sp71072",
+      "res:sp71072-c0007-e006259",
+    ]);
   });
 });
 

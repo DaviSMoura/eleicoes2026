@@ -1,9 +1,7 @@
 import { useMemo, useState } from "react";
 import { Cell, Pie, PieChart } from "recharts";
-import { colorsForParties, type Chamber } from "@/lib/election/live";
+import { CHAMBER_COLORED, chamberColors, type Chamber } from "@/lib/election/live";
 
-// Slices with their own color; the rest fold into "Outros" so no color repeats.
-const COLORED = 9;
 const pct = (n: number, d = 1) => n.toFixed(d).replace(".", ",");
 
 type Slice = { party: string; seats: number; color: number };
@@ -13,16 +11,16 @@ type Slice = { party: string; seats: number; color: number };
 export function PartyPie({ chamber, label }: { chamber: Chamber; label: string }) {
   const [active, setActive] = useState<string | null>(null);
   const { slices, colorOf } = useMemo(() => {
-    const top = chamber.parties.filter((p) => p.seats > 0).slice(0, COLORED);
-    const colors = colorsForParties(top.map((p) => p.party));
-    const others = chamber.parties.slice(COLORED).reduce((n, p) => n + p.seats, 0);
+    const colorOf = chamberColors(chamber);
+    const top = chamber.parties.filter((p) => p.seats > 0).slice(0, CHAMBER_COLORED);
+    const others = chamber.parties.slice(CHAMBER_COLORED).reduce((n, p) => n + p.seats, 0);
     const slices: Slice[] = top.map((p) => ({
       party: p.party,
       seats: p.seats,
-      color: colors.get(p.party) ?? 0,
+      color: colorOf(p.party),
     }));
     if (others > 0) slices.push({ party: "Outros", seats: others, color: 0 });
-    return { slices, colorOf: (party: string) => colors.get(party) ?? 0 };
+    return { slices, colorOf };
   }, [chamber]);
 
   const total = chamber.parties.reduce((n, p) => n + p.seats, 0);
@@ -74,7 +72,9 @@ export function PartyPie({ chamber, label }: { chamber: Chamber; label: string }
             </>
           ) : (
             <>
-              <span className="tnum text-xl font-bold leading-tight">{total}</span>
+              <span className="tnum text-xl font-bold leading-tight">
+                {total.toLocaleString("pt-BR")}
+              </span>
               <span className="text-[11px] text-muted-foreground">{label}</span>
             </>
           )}

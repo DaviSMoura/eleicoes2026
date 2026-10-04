@@ -1,10 +1,13 @@
 import { useMemo, useState, type ReactNode } from "react";
 import { Activity, ChevronLeft, ChevronRight, X } from "lucide-react";
 import {
+  chamberColors,
   chamberSeats,
   colorsForParties,
   senateSeats,
-  useCamaraRaces,
+  stateSeats,
+  useProportionalRaces,
+  type ProportionalCargo,
   fmtFull,
   isSettled,
   raceStatus,
@@ -44,13 +47,15 @@ const REGIONS: { name: string; ufs: string[] }[] = [
   { name: "Sul", ufs: ["pr", "rs", "sc"] },
 ];
 
-type View = "apuracao" | "presidente" | "governador" | "senador" | "camara";
-const VIEWS: { id: View; label: string }[] = [
-  { id: "apuracao", label: "Apuração" },
-  { id: "presidente", label: "Presidente" },
-  { id: "governador", label: "Governador" },
-  { id: "senador", label: "Senador" },
-  { id: "camara", label: "Câmara" },
+type View = "apuracao" | "presidente" | "governador" | "senador" | "depfed" | "depest";
+// Six tabs only fit the column abbreviated; the full name shows on hover.
+const VIEWS: { id: View; label: string; title: string }[] = [
+  { id: "apuracao", label: "Apuração", title: "Andamento da apuração" },
+  { id: "presidente", label: "Pres.", title: "Presidente" },
+  { id: "governador", label: "Gov.", title: "Governador" },
+  { id: "senador", label: "Sen.", title: "Senador" },
+  { id: "depfed", label: "Dep. Fed.", title: "Deputado federal" },
+  { id: "depest", label: "Dep. Est.", title: "Deputado estadual e distrital" },
 ];
 
 type Props = {
@@ -124,6 +129,8 @@ export function StatusColumn({ onRemove, onMove, isFirst, isLast }: Props) {
           {VIEWS.map((v) => (
             <button
               key={v.id}
+              title={v.title}
+              aria-label={v.title}
               onClick={() => setView(v.id)}
               className={`flex-auto whitespace-nowrap border-b-2 px-1 py-2 text-[11px] font-semibold transition-colors ${
                 view === v.id
@@ -155,8 +162,10 @@ export function StatusColumn({ onRemove, onMove, isFirst, isLast }: Props) {
           <OfficeView races={st.gov} office="Governador" />
         ) : view === "senador" ? (
           <OfficeView races={st.sen} office="Senador" />
+        ) : view === "depfed" ? (
+          <ProportionalView key="fed" cargo={6} />
         ) : (
-          <CamaraView />
+          <ProportionalView key="est" cargo={7} />
         )}
       </div>
     </section>
@@ -468,44 +477,152 @@ function SenadoSeats({ races }: { races: Map<string, Race> }) {
   );
 }
 
-// The 513 seats of the Câmara by party: the quociente simulation of each state while it counts,
-// the TSE's elected once it is final.
-function CamaraView() {
-  const races = useCamaraRaces();
+const PROPORTIONAL = {
+  6: { who: "deputados federais", short: "deputados", loading: "deputados federais" },
+  7: {
+    who: "deputados estaduais e distritais",
+    short: "deputados",
+    loading: "deputados estaduais e distritais",
+  },
+} as const;
+
+// Deputados (Câmara or Assembleias) by party: the quociente simulation of each state while it
+// counts, the TSE's elected once it is final. The map shows the party with most seats per state.
+function ProportionalView({ cargo }: { cargo: ProportionalCargo }) {
+  const races = useProportionalRaces(cargo);
+  const text = PROPORTIONAL[cargo];
   const chamber = useMemo(() => chamberSeats(races), [races]);
-  const counted = races.filter((r) => r.data.progress > 0);
-  const final = races.filter((r) => r.data.progress >= 100).length;
-  const progress =
-    counted.length > 0 ? counted.reduce((n, r) => n + r.data.progress, 0) / races.length : 0;
+  const byUf = useMemo(
+    () => new Map(races.map((r) => [r.meta.abr, { race: r, seats: stateSeats(r) }] as const)),
+    [races],
+  );
   if (races.length < 27)
     return (
       <p className="px-3 py-6 text-center text-xs text-muted-foreground">
-        Carregando os deputados federais dos 27 estados...
+        Carregando os {text.loading} dos 27 estados...
       </p>
     );
+
+  const colorOf = chamberColors(chamber);
+  const done = races.reduce((n, r) => n + r.data.sections, 0);
+  const total = races.reduce((n, r) => n + r.data.sectionsTotal, 0);
+  const progress = total > 0 ? (done / total) * 100 : 0;
+  const final = new Set([...byUf].filter(([, s]) => s.seats.final > 0).map(([uf]) => uf));
+  const topOf = (uf: string) => byUf.get(uf)?.seats.parties[0];
+  const fillOf = (uf: string) => {
+    const s = byUf.get(uf);
+    const top = topOf(uf);
+    if (!s || !top) return "var(--muted)";
+    const alpha = Math.round(35 + (s.race.data.progress / 100) * 65);
+    return `color-mix(in oklab, ${partyColor(colorOf(top.party))} ${alpha}%, transparent)`;
+  };
+
+  // Parties with the most seats somewhere, and in how many states.
+  const leading = new Map<string, number>();
+  for (const uf of byUf.keys()) {
+    const top = topOf(uf);
+    if (top) leading.set(top.party, (leading.get(top.party) ?? 0) + 1);
+  }
+  const legend = [...leading].sort((a, b) => b[1] - a[1]);
+
   return (
     <>
-      <div className="border-b border-border px-3 pb-3 pt-3 text-[12px]">
-        <span className="tnum font-bold">{chamber.seats}</span>{" "}
-        <span className="text-muted-foreground">deputados federais</span>
-        {final > 0 && (
-          <>
-            {" "}
-            <span className="tnum font-bold">{final}</span>{" "}
+      <div className="flex flex-wrap gap-x-3 gap-y-1 border-b border-border px-3 pb-3 pt-3 text-[12px]">
+        <span>
+          <span className="tnum font-bold">{nf.format(chamber.seats)}</span>{" "}
+          <span className="text-muted-foreground">{text.who}</span>
+        </span>
+        {final.size > 0 && (
+          <span>
+            <span className="tnum font-bold">{final.size}</span>{" "}
             <span className="text-muted-foreground">
-              {final === 1 ? "estado com resultado oficial" : "estados com resultado oficial"}
+              {final.size === 1 ? "estado com resultado oficial" : "estados com resultado oficial"}
             </span>
-          </>
+          </span>
         )}
       </div>
-      <div className="pb-3">
-        <SectionTitle>Vagas por partido</SectionTitle>
-        <PartyPie chamber={chamber} label="deputados" />
-        <p className="mt-2 px-3 text-[10px] text-muted-foreground">
-          Simulação do quociente eleitoral em cada estado com os votos já apurados (média de{" "}
-          {pct(progress)}% das seções). Muda conforme a apuração avança e não substitui o resultado
-          oficial do TSE.
+
+      <div className="border-b border-border pb-3">
+        <SectionTitle>Partido com mais vagas em cada estado</SectionTitle>
+        <StateMap
+          ariaLabel={`Mapa do Brasil com o partido que faz mais ${text.short} em cada estado`}
+          fillOf={fillOf}
+          checks={final}
+          describe={(uf) => {
+            const s = byUf.get(uf);
+            const top = topOf(uf);
+            if (!s || !top)
+              return <span className="text-muted-foreground">{ufLabel(uf)}: aguardando</span>;
+            return (
+              <>
+                <span className="font-semibold">{ufLabel(uf)}</span> {top.party}{" "}
+                <span className="tnum">
+                  {top.seats} de {s.race.meta.seats}
+                </span>
+                <span className="text-muted-foreground">
+                  {" "}
+                  · {pct(s.race.data.progress)}% apurado · {final.has(uf) ? "oficial" : "simulação"}
+                </span>
+              </>
+            );
+          }}
+        />
+        <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 px-3 text-[11px] text-muted-foreground">
+          {legend.map(([party, states]) => (
+            <span key={party} className="flex items-center gap-1">
+              <span className="size-2" style={{ background: partyColor(colorOf(party)) }} />
+              {party} <span className="tnum font-semibold text-foreground">{states}</span>
+            </span>
+          ))}
+        </div>
+        <p className="mt-1.5 px-3 text-[10px] text-muted-foreground">
+          Cor mais forte = mais apurado. ✓ = resultado oficial do TSE.
         </p>
+      </div>
+
+      <div className="border-b border-border pb-3">
+        <SectionTitle>Vagas por partido</SectionTitle>
+        <PartyPie chamber={chamber} label={text.short} />
+        <p className="mt-2 px-3 text-[10px] text-muted-foreground">
+          Simulação do quociente eleitoral em cada estado com os votos já apurados ({pct(progress)}%
+          das seções). Muda conforme a apuração avança e não substitui o resultado oficial do TSE.
+          {cargo === 7 && " No DF, são os deputados distritais."}
+        </p>
+      </div>
+
+      <div className="pb-3">
+        <SectionTitle>Estado por estado</SectionTitle>
+        <div className="mt-2 space-y-1.5 px-3">
+          {[...byUf]
+            .sort(([a], [b]) => a.localeCompare(b))
+            .map(([uf, s]) => {
+              const top = s.seats.parties[0];
+              return (
+                <div key={uf} className="flex items-center gap-2 text-[11px]">
+                  <span className="w-12 shrink-0 font-semibold">{ufLabel(uf)}</span>
+                  <span
+                    className="size-2 shrink-0 rounded-full"
+                    style={{ background: top ? partyColor(colorOf(top.party)) : "var(--muted)" }}
+                  />
+                  <span className="min-w-0 flex-1 truncate">
+                    {top ? top.party : <span className="text-muted-foreground">aguardando</span>}
+                  </span>
+                  <span className="tnum w-14 text-right">
+                    {top ? `${top.seats} de ${s.race.meta.seats}` : ""}
+                  </span>
+                  <span
+                    className={`w-[92px] shrink-0 text-right ${
+                      final.has(uf)
+                        ? "font-semibold text-[var(--party-4)]"
+                        : "text-muted-foreground"
+                    }`}
+                  >
+                    {final.has(uf) ? "oficial" : `${pct(s.race.data.progress)}% apurado`}
+                  </span>
+                </div>
+              );
+            })}
+        </div>
       </div>
     </>
   );

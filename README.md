@@ -22,7 +22,7 @@ Fechou a aba e voltou depois, tá tudo lá, do jeito que você deixou.
 
 ### Status da apuração
 
-É o resumo geral, em cinco abas.
+É o resumo geral, em seis abas.
 
 **Apuração** mostra o andamento da contagem, não quem tá ganhando.
 
@@ -43,14 +43,18 @@ Fechou a aba e voltou depois, tá tudo lá, do jeito que você deixou.
 
 Na aba **Senador** tem também uma pizza com as 54 vagas por partido - os dois mais votados de cada estado, como se a apuração acabasse agora, e quantas já estão definidas.
 
-**Câmara** mostra os 513 deputados federais por partido, numa pizza.
-É a simulação do quociente eleitoral de cada estado com os votos já apurados, a mesma conta da seção de quociente.
-Quando um estado termina, entram os eleitos oficiais do TSE no lugar da simulação.
+**Dep. Fed.** e **Dep. Est.** fazem o mesmo pros deputados, com as adaptações que a eleição proporcional pede.
+
+- O mapa pinta cada estado com a cor do partido que faz mais cadeiras lá.
+- A pizza mostra a bancada do país inteiro por partido: os 513 deputados federais, ou os 1.059 estaduais e distritais (no DF são distritais).
+- A lista estado por estado mostra o partido que lidera e quantas vagas ele faz, tipo "PL 27 de 94" em São Paulo.
+- Tudo é a simulação do quociente eleitoral de cada estado com os votos já apurados, a mesma conta da seção de quociente.
+- Quando um estado termina, entram os eleitos oficiais do TSE no lugar da simulação e ele ganha o ✓.
 
 <p>
 <img src="docs/screenshots/status-governador.png" alt="Aba Governador com o mapa pintado pela cor do partido que lidera em cada estado" width="340">
 <img src="docs/screenshots/status-senador.png" alt="Aba Senador com as vagas já definidas em cada estado" width="340">
-<img src="docs/screenshots/status-camara.png" alt="Aba Câmara com a pizza dos 513 deputados federais por partido" width="340">
+<img src="docs/screenshots/status-deputados.png" alt="Aba Dep. Fed. com o partido que faz mais deputados em cada estado e a pizza dos 513 por partido" width="340">
 </p>
 
 ### O placar

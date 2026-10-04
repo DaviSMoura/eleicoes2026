@@ -510,24 +510,40 @@ export function useStatusRaces(): StatusRaces {
   );
 }
 
-// Câmara: the Dep. Federal of every state, loaded only while the Câmara view is open (the 27
-// candidate lists weigh ~400KB gzipped).
-const CAMARA_KEYS = UFS.map((uf) => keyFor(uf, CARGO.depFederal));
-const CAMARA_TOPICS = [STATE_RACE_TOPICS[CARGO.depFederal]!];
+// Deputados of every state, loaded only while their view is open (the 27 candidate lists weigh
+// ~400KB gzipped for Dep. Federal and ~840KB for Dep. Estadual). DF elects distritais instead.
+const PROPORTIONAL_KEYS = {
+  [CARGO.depFederal]: UFS.map((uf) => keyFor(uf, CARGO.depFederal)),
+  [CARGO.depEstadual]: UFS.map((uf) =>
+    keyFor(uf, uf === "df" ? CARGO.depDistrital : CARGO.depEstadual),
+  ),
+};
 
-export function useCamaraRaces(): Race[] {
+export type ProportionalCargo = keyof typeof PROPORTIONAL_KEYS;
+
+export function useProportionalRaces(cargo: ProportionalCargo): Race[] {
+  const keys = PROPORTIONAL_KEYS[cargo];
   useEffect(() => {
-    retain(CAMARA_KEYS, [], CAMARA_TOPICS);
-    return () => release(CAMARA_KEYS, CAMARA_TOPICS);
-  }, []);
+    const topics = [STATE_RACE_TOPICS[cargo]!];
+    retain(keys, [], topics);
+    return () => release(keys, topics);
+  }, [cargo, keys]);
   const v = useSyncExternalStore(subscribeStore, getVersion, getVersion);
   return useMemo(
-    () => CAMARA_KEYS.flatMap((k) => races.get(k) ?? []),
-    [v], // eslint-disable-line react-hooks/exhaustive-deps
+    () => keys.flatMap((k) => races.get(k) ?? []),
+    [v, keys], // eslint-disable-line react-hooks/exhaustive-deps
   );
 }
 
-export { chamberSeats, senateSeats, type Chamber, type PartySeats } from "./congress";
+export {
+  CHAMBER_COLORED,
+  chamberColors,
+  chamberSeats,
+  senateSeats,
+  stateSeats,
+  type Chamber,
+  type PartySeats,
+} from "./congress";
 export { raceStatus, STATE_LABEL, isSettled, type RaceState, type RaceStatus } from "./status";
 
 export function useLiveStatus() {

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { normalizeResult, type RawResult } from "../../../supabase/functions/_shared/tse";
-import { chamberSeats, senateSeats } from "./congress";
+import { chamberSeats, senateSeats, stateSeats } from "./congress";
 import type { Race } from "./trends";
 
 import spSen from "./__fixtures__/sp-c0005-e006259-u.json";
@@ -20,6 +20,7 @@ describe("chamberSeats", () => {
     const res = chamberSeats([final]);
     expect(res.seats).toBe(55);
     expect(res.settled).toBe(55);
+    expect(res.final).toBe(1);
     expect(res.parties.reduce((n, p) => n + p.seats, 0)).toBe(55);
     // Counted per party, not per federation: PSOL and REDE each keep their own seats.
     const party = new Map(final.meta.candidates.map((c) => [c.id, c.party]));
@@ -34,6 +35,17 @@ describe("chamberSeats", () => {
     const sim = chamberSeats([counting]);
     expect(sim.settled).toBe(0);
     expect(sim.parties).toEqual(chamberSeats([final]).parties.map((p) => ({ ...p, settled: 0 })));
+  });
+});
+
+describe("stateSeats", () => {
+  it("breaks a tie in seats with the party's votes", () => {
+    const race = raceOf("sp71072-c0013-e000619", ver2024);
+    const res = stateSeats(race);
+    for (let i = 1; i < res.parties.length; i++) {
+      const [a, b] = [res.parties[i - 1]!, res.parties[i]!];
+      expect(a.seats > b.seats || (a.seats === b.seats && a.votes >= b.votes)).toBe(true);
+    }
   });
 });
 
