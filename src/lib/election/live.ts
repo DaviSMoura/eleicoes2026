@@ -15,6 +15,8 @@ import type { HistoryPoint, Race } from "./trends";
 
 export type { HistoryPoint, Race, Trend, TrendSummary } from "./trends";
 export { trendsFor, shareOf, validOf } from "./trends";
+export { distributeSeats, qeInputFor, quocienteEleitoral } from "./quociente";
+export type { QeResult, QeGroupResult } from "./quociente";
 
 // ---------- places ----------
 

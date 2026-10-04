@@ -6,7 +6,6 @@ import {
   abUrl,
   diffAb,
   parseKey,
-  resultUrl,
   summarizeAb,
   type RawAb,
 } from "../_shared/tse.ts";
@@ -17,6 +16,7 @@ import {
   fetchTse,
   getStates,
   mapLimit,
+  raceStateId,
   refreshRace,
   saveState,
   type Broadcast,
@@ -100,9 +100,9 @@ Deno.serve(async (req) => {
     if (watched.length === 0) return new Response("idle");
 
     const changed = await changedAbrangencias(watched);
-    const states = await getStates(watched.map(resultUrl));
+    const states = await getStates(watched.map(raceStateId));
     const stale = (key: string) => {
-      const at = states.get(resultUrl(key))?.checked_at;
+      const at = states.get(raceStateId(key))?.checked_at;
       return !at || Date.now() - new Date(at).getTime() > SAFETY_RECHECK_MS;
     };
 

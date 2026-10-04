@@ -21,6 +21,11 @@ export const db = createClient(SUPABASE_URL, SERVICE_KEY, {
 
 export const HISTORY_TOP = 12;
 
+// Bump whenever normalizeResult's output changes: stored races are then refetched once,
+// since their etags are kept per version.
+const NORMALIZE_VERSION = 2;
+export const raceStateId = (key: string) => `${resultUrl(key)}#v${NORMALIZE_VERSION}`;
+
 export type Broadcast = { topic: string; event: string; payload: unknown };
 
 type PollerRow = {
@@ -53,7 +58,11 @@ export type Fetched<T> =
   | { kind: "error"; status: number };
 
 // Conditional GET against the TSE CDN. A 304 costs nothing on either side.
-export async function fetchTse<T>(url: string, state: PollerRow | undefined): Promise<Fetched<T>> {
+export async function fetchTse<T>(
+  url: string,
+  state: PollerRow | undefined,
+  stateId: string = url,
+): Promise<Fetched<T>> {
   if (state?.retry_after && new Date(state.retry_after) > new Date()) return { kind: "same" };
   const headers: Record<string, string> = { "accept-encoding": "gzip" };
   if (state?.etag) headers["if-none-match"] = state.etag;
@@ -72,7 +81,10 @@ export async function fetchTse<T>(url: string, state: PollerRow | undefined): Pr
   if (!res.ok) {
     await res.body?.cancel();
     const backoff = res.status === 429 ? 15 : 5;
-    await saveState({ id: url, retry_after: new Date(Date.now() + backoff * 1000).toISOString() });
+    await saveState({
+      id: stateId,
+      retry_after: new Date(Date.now() + backoff * 1000).toISOString(),
+    });
     console.error("tse error", res.status, url);
     return { kind: "error", status: res.status };
   }
@@ -95,12 +107,13 @@ const historyVotes = (data: RaceData) =>
 // Fetches one race and, when it changed, stores it and returns the realtime message.
 export async function refreshRace(key: string): Promise<Broadcast | null> {
   const url = resultUrl(key);
-  const states = await getStates([url]);
-  const got = await fetchTse<RawResult>(url, states.get(url));
+  const stateId = raceStateId(key);
+  const states = await getStates([stateId]);
+  const got = await fetchTse<RawResult>(url, states.get(stateId), stateId);
   const now = new Date().toISOString();
   if (got.kind !== "new") {
     if (got.kind === "same" || got.kind === "missing")
-      await saveState({ id: url, checked_at: now });
+      await saveState({ id: stateId, checked_at: now });
     return null;
   }
   const race: NormalizedRace = normalizeResult(key, got.body);
@@ -150,7 +163,7 @@ export async function refreshRace(key: string): Promise<Broadcast | null> {
     if (hErr) throw hErr;
   }
 
-  await saveState({ id: url, etag: got.etag, checked_at: now, retry_after: null });
+  await saveState({ id: stateId, etag: got.etag, checked_at: now, retry_after: null });
   return { topic: `res:${key}`, event: "update", payload: { key, data: race.data, colors } };
 }
 

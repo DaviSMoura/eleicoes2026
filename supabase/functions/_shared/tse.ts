@@ -84,17 +84,36 @@ type RawCand = {
   seq?: string;
   e?: string;
   st?: string;
+  dt?: string; // birth date, dd/mm/yyyy
+  dvt?: string; // destinação do voto: "Válido", "Válido (legenda)", "Anulado", ...
   vap: string;
 };
-type RawPar = { sg: string; cand: RawCand[] };
-type RawAgr = { par: RawPar[] };
-type RawCarg = { cd: string; nmn: string; nv: string; agr: RawAgr[] };
+// tvtn/tvtl: valid nominal / party-list votes (tvan/tval also include annulled ones).
+type RawPar = {
+  n?: string;
+  sg: string;
+  nfed?: string;
+  tvtn?: string;
+  tvtl?: string;
+  cand: RawCand[];
+};
+type RawAgr = { n?: string; tp?: string; vag?: string; par: RawPar[] };
+type RawFed = { n: string; sg: string };
+type RawCarg = {
+  cd: string;
+  nmn: string;
+  nv: string;
+  qe?: string;
+  fed?: RawFed[];
+  agr: RawAgr[];
+};
 export type RawResult = {
   ele: string;
   cdabr: string;
   dg: string;
   hg: string;
   idg: string;
+  tf?: string; // "s" when the count is final
   s: { ts: string; st: string; pst: string };
   e: { te: string; c: string };
   v: { vv: string };
@@ -119,7 +138,12 @@ export type CandidateMeta = {
   party: string;
   number: string;
   seq: number;
+  born: string; // yyyy-mm-dd, breaks ties in favor of the older candidate (art. 110)
+  group: string; // agremiação that competes for seats: the federation, or the party itself
 };
+
+// A party or a federation (which competes as a single party in proportional races).
+export type GroupMeta = { id: string; label: string; federation: boolean };
 
 export type RaceMeta = {
   key: string;
@@ -130,6 +154,7 @@ export type RaceMeta = {
   office: string;
   seats: number;
   candidates: CandidateMeta[];
+  groups: GroupMeta[];
 };
 
 // [sqcand, votes, TSE status ("" while counting; e.g. "Eleito", "2º turno", "Eleito por QP")]
@@ -145,6 +170,11 @@ export type RaceData = {
   turnout: number; // comparecimento (people)
   valid: number; // votos válidos
   votes: VoteRow[];
+  // Valid votes per agremiação (nominal + party-list), excluding annulled ones.
+  groupVotes: [group: string, votes: number][];
+  // Candidates whose votes cannot elect them (annulled, or counted for the party only).
+  blocked: string[];
+  official?: { qe: number; seats: [group: string, seats: number][] }; // once the TSE publishes it
 };
 
 export type NormalizedRace = { meta: RaceMeta; data: RaceData };
@@ -168,8 +198,18 @@ export function normalizeResult(key: string, raw: RawResult): NormalizedRace {
   if (!carg) throw new Error(`No cargo in ${key}`);
   const candidates: CandidateMeta[] = [];
   const votes: VoteRow[] = [];
+  const fedLabel = new Map((carg.fed ?? []).map((f) => [f.n, f.sg]));
+  const groups = new Map<string, GroupMeta>();
+  const groupVotes = new Map<string, number>();
+  const blocked: string[] = [];
+  const official: [string, number][] = [];
   for (const agr of carg.agr) {
     for (const par of agr.par) {
+      const fed = par.nfed ? fedLabel.get(par.nfed) : undefined;
+      const group = fed ? `f${par.nfed}` : par.sg;
+      if (!groups.has(group))
+        groups.set(group, { id: group, label: fed ?? par.sg, federation: !!fed });
+      groupVotes.set(group, (groupVotes.get(group) ?? 0) + toInt(par.tvtn) + toInt(par.tvtl));
       for (const c of par.cand) {
         candidates.push({
           id: c.sqcand,
@@ -177,11 +217,20 @@ export function normalizeResult(key: string, raw: RawResult): NormalizedRace {
           party: par.sg,
           number: c.n,
           seq: toInt(c.seq),
+          born: c.dt ? c.dt.split("/").reverse().join("-") : "",
+          group,
         });
         votes.push([c.sqcand, toInt(c.vap), c.st ?? ""]);
+        if (c.dvt && c.dvt !== "Válido") blocked.push(c.sqcand);
       }
     }
+    const first = agr.par[0];
+    if (agr.vag !== undefined && first) {
+      const group = first.nfed && fedLabel.has(first.nfed) ? `f${first.nfed}` : first.sg;
+      official.push([group, toInt(agr.vag)]);
+    }
   }
+  const qe = toInt(carg.qe);
   candidates.sort((a, b) => a.seq - b.seq || a.name.localeCompare(b.name));
   return {
     meta: {
@@ -193,6 +242,7 @@ export function normalizeResult(key: string, raw: RawResult): NormalizedRace {
       office: carg.nmn,
       seats: toInt(carg.nv) || 1,
       candidates,
+      groups: [...groups.values()],
     },
     data: {
       idg: raw.idg,
@@ -204,6 +254,9 @@ export function normalizeResult(key: string, raw: RawResult): NormalizedRace {
       turnout: toInt(raw.e.c),
       valid: toInt(raw.v.vv),
       votes,
+      groupVotes: [...groupVotes.entries()],
+      blocked,
+      ...(qe > 0 ? { official: { qe, seats: official } } : {}),
     },
   };
 }

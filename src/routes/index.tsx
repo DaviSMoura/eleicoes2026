@@ -5,6 +5,7 @@ import { Logo } from "@/components/deck/Logo";
 import { Tip } from "@/components/deck/Tip";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { CityColumn } from "@/components/deck/CityColumn";
+import { Termo } from "@/components/deck/Termo";
 import {
   DEFAULT_PLACES,
   fmtFull,
@@ -211,14 +212,17 @@ function Deck() {
               · Projeto independente, sem vínculo com o TSE. Tendências e projeções são estimativas
               e não substituem o resultado oficial.
             </span>
-            <a
-              href="https://instagram.com/davimoura.dev"
-              target="_blank"
-              rel="noreferrer"
-              className="ml-3 shrink-0 hover:text-foreground"
-            >
-              por <span className="font-semibold text-foreground">@davimoura.dev</span>
-            </a>
+            <span className="ml-3 flex shrink-0 items-center gap-3">
+              <Termo />
+              <a
+                href="https://instagram.com/davimoura.dev"
+                target="_blank"
+                rel="noreferrer"
+                className="hover:text-foreground"
+              >
+                por <span className="font-semibold text-foreground">@davimoura.dev</span>
+              </a>
+            </span>
           </footer>
         </div>
       </div>

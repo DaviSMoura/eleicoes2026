@@ -1,4 +1,5 @@
 import { Tip } from "./Tip";
+import { Quociente } from "./Quociente";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ChevronLeft, ChevronRight, X, MapPin, TrendingUp, TrendingDown } from "lucide-react";
 import { Line, LineChart, XAxis, YAxis, CartesianGrid, Tooltip } from "recharts";
@@ -194,6 +195,7 @@ export function CityColumn({ place, onRemove, onMove, isFirst, isLast }: Props) 
         {race ? (
           <>
             <Scoreboard race={race} parties={parties} ufRaces={column.ufRaces} />
+            {isDeputados(race) && <Quociente race={race} place={place} />}
             <Trends race={race} parties={parties} ufRaces={column.ufRaces} />
             <Evolution race={race} parties={parties} />
             {national && <States br={race} ufRaces={column.ufRaces} />}
