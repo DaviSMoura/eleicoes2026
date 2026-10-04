@@ -19,6 +19,10 @@ import { colorsFor } from "./colors";
 import type { HistoryPoint, Race } from "./trends";
 
 export type { HistoryPoint, Race, Trend, TrendPoint, TrendSummary } from "./trends";
+// The TSE's reason when a candidate's votes are not valid ("Anulado sub judice", "Anulado").
+export const voteStatusOf = (data: RaceData, id: string) =>
+  data.voteStatus?.find(([c]) => c === id)?.[1];
+
 export { pointValidOf, roundShares, trendPath, trendsFor, shareOf, validOf } from "./trends";
 export { distributeSeats, qeInputFor, quocienteEleitoral } from "./quociente";
 export type { QeResult, QeGroupResult } from "./quociente";
@@ -324,6 +328,7 @@ function subscribe(topic: string) {
 }
 
 function retain(keys: string[], history: string[], topics: string[]) {
+  const newlyWanted = history.filter((k) => !historyWanted.has(k));
   history.forEach((k) => historyWanted.add(k));
   // Keys released moments ago (a remount, a moved column) still have fresh data: no refetch.
   const fresh = keys.filter((k) => (refs.get(k) ?? 0) === 0 && !lingering.has(k));
@@ -345,7 +350,13 @@ function retain(keys: string[], history: string[], topics: string[]) {
     if (!channels.has(t)) subscribe(t);
   }
   if (fresh.length) void watch(fresh, true).catch(() => setTimeout(() => retry(fresh), 5000));
+  // Already loaded by a view that skips history (the Status column holds Presidente-Brasil
+  // without it): fetch the history now, or the Brasil column's charts stay empty.
+  const late = newlyWanted.filter((k) => !fresh.includes(k));
+  if (late.length) void watch(late, true).catch(() => setTimeout(() => retry(late), 5000));
 }
+
+export { retain as retainForTest };
 
 function retry(keys: string[]) {
   const still = keys.filter((k) => (refs.get(k) ?? 0) > 0);
