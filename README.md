@@ -5,6 +5,19 @@ Cada coluna é o Brasil, um estado ou um município, com placar, tendências, ev
 
 No ar em **[eleicoes2026-ashy.vercel.app](https://eleicoes2026-ashy.vercel.app)**.
 
+![Painel com as colunas Brasil, estado de São Paulo e cidade de São Paulo](docs/screenshots/painel-escuro.png)
+
+<table>
+  <tr>
+    <td><img src="docs/screenshots/painel-claro.png" alt="Painel no modo claro"></td>
+    <td><img src="docs/screenshots/adicionar-coluna.png" alt="Busca de estados e municípios para adicionar uma coluna"></td>
+  </tr>
+  <tr>
+    <td align="center">Modo claro</td>
+    <td align="center">Qualquer estado ou município vira uma coluna</td>
+  </tr>
+</table>
+
 ## Como os dados chegam
 
 Os navegadores nunca consultam o TSE diretamente.
