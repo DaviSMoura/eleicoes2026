@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { Tip } from "./Tip";
+import { useEffect, useRef, useState } from "react";
 import { ChevronLeft, ChevronRight, X, MapPin } from "lucide-react";
 import { Line, LineChart, XAxis, YAxis, CartesianGrid, Tooltip } from "recharts";
 import {
@@ -23,6 +24,31 @@ const initials = (n: string) =>
     .slice(0, 2)
     .join("");
 
+function useAnimated(value: number, ms = 700) {
+  const [v, setV] = useState(value);
+  const from = useRef(value);
+  useEffect(() => {
+    const start = performance.now();
+    const a = from.current;
+    let raf = 0;
+    const step = (t: number) => {
+      const k = Math.min(1, (t - start) / ms);
+      const e = 1 - Math.pow(1 - k, 3);
+      const cur = a + (value - a) * e;
+      setV(cur);
+      from.current = cur;
+      if (k < 1) raf = requestAnimationFrame(step);
+    };
+    raf = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(raf);
+  }, [value, ms]);
+  return v;
+}
+
+function Num({ value, format }: { value: number; format: (n: number) => string }) {
+  return <>{format(useAnimated(value))}</>;
+}
+
 type Props = {
   state: CityState;
   onRemove: () => void;
@@ -33,6 +59,9 @@ type Props = {
 
 export function CityColumn({ state, onRemove, onMove, isFirst, isLast }: Props) {
   const [office, setOffice] = useState<Office>("presidente");
+  const [parties, setParties] = useState<string[]>([]);
+  const available = Array.from(new Set(state.offices[office].candidates.map((c) => c.party).filter((p) => p !== "—")));
+  const toggle = (p: string) => setParties((cur) => (cur.includes(p) ? cur.filter((x) => x !== p) : [...cur, p]));
   const { city, progress } = state;
   const done = progress >= 100;
   const national = isNational(state.id);
@@ -41,7 +70,7 @@ export function CityColumn({ state, onRemove, onMove, isFirst, isLast }: Props) 
   return (
     <section
       id={`col-${state.id}`}
-      className="flex h-full w-[340px] shrink-0 flex-col border-r border-border bg-card"
+      className="flex h-full w-[340px] shrink-0 animate-col-in flex-col border-r border-border bg-card"
     >
       <header className="shrink-0 border-b border-border">
         <div className="flex items-center gap-2 px-3 pb-2 pt-3">
@@ -53,15 +82,15 @@ export function CityColumn({ state, onRemove, onMove, isFirst, isLast }: Props) 
             </p>
           </div>
           <div className="flex text-muted-foreground">
-            <button aria-label="Mover para a esquerda" disabled={isFirst} onClick={() => onMove(-1)} className="rounded p-1 hover:bg-accent hover:text-foreground disabled:opacity-30">
+            <Tip side="bottom" label="Mover para a esquerda"><button aria-label="Mover para a esquerda" disabled={isFirst} onClick={() => onMove(-1)} className="rounded p-1 hover:bg-accent hover:text-foreground disabled:opacity-30">
               <ChevronLeft className="size-4" />
-            </button>
-            <button aria-label="Mover para a direita" disabled={isLast} onClick={() => onMove(1)} className="rounded p-1 hover:bg-accent hover:text-foreground disabled:opacity-30">
+            </button></Tip>
+            <Tip side="bottom" label="Mover para a direita"><button aria-label="Mover para a direita" disabled={isLast} onClick={() => onMove(1)} className="rounded p-1 hover:bg-accent hover:text-foreground disabled:opacity-30">
               <ChevronRight className="size-4" />
-            </button>
-            <button aria-label="Remover coluna" onClick={onRemove} className="rounded p-1 hover:bg-accent hover:text-foreground">
+            </button></Tip>
+            <Tip side="bottom" label="Remover coluna"><button aria-label="Remover coluna" onClick={onRemove} className="rounded p-1 hover:bg-accent hover:text-foreground">
               <X className="size-4" />
-            </button>
+            </button></Tip>
           </div>
         </div>
         <div className="px-3 pb-2">
@@ -69,21 +98,26 @@ export function CityColumn({ state, onRemove, onMove, isFirst, isLast }: Props) 
             <span className="text-muted-foreground">
               {done ? "Totalização concluída" : "Seções totalizadas"}
             </span>
-            <span className="tnum font-semibold">{pct(progress)}%</span>
+            <span className="tnum font-semibold"><Num value={progress} format={(n) => pct(n)} />%</span>
           </div>
-          <div className="mt-1 h-[3px] w-full bg-muted">
-            <div className="h-full bg-primary transition-[width] duration-700" style={{ width: `${progress}%` }} />
+          <div className="mt-1 h-[3px] w-full overflow-hidden bg-muted">
+            <div className="relative h-full overflow-hidden bg-primary transition-[width] duration-700" style={{ width: `${progress}%` }}>
+              {!done && <span className="absolute inset-y-0 left-0 w-1/3 animate-shimmer bg-gradient-to-r from-transparent via-primary-foreground/60 to-transparent" />}
+            </div>
           </div>
           <div className="mt-1 flex justify-between text-[11px] text-muted-foreground">
             <span className="tnum">Comparecimento {pct(state.turnout * 100, 1)}%</span>
-            <span className="tnum">{nf.format(validVotes(state))} válidos</span>
+            <span className="tnum"><Num value={validVotes(state)} format={(n) => nf.format(Math.round(n))} /> válidos</span>
           </div>
         </div>
         <nav className="flex">
           {offices.map((o) => (
             <button
               key={o.id}
-              onClick={() => setOffice(o.id)}
+              onClick={() => {
+                setOffice(o.id);
+                setParties([]);
+              }}
               className={`flex-1 border-b-2 py-2 text-xs font-semibold transition-colors ${
                 office === o.id
                   ? "border-primary text-foreground"
@@ -94,11 +128,30 @@ export function CityColumn({ state, onRemove, onMove, isFirst, isLast }: Props) 
             </button>
           ))}
         </nav>
+        {available.length > 1 && (
+          <div className="flex gap-1 overflow-x-auto px-3 py-2">
+            <button
+              onClick={() => setParties([])}
+              className={`shrink-0 rounded-full border px-2 py-0.5 text-[11px] font-semibold transition-colors ${parties.length === 0 ? "border-primary bg-primary text-primary-foreground" : "border-border text-muted-foreground hover:text-foreground"}`}
+            >
+              Todos
+            </button>
+            {available.map((p) => (
+              <button
+                key={p}
+                onClick={() => toggle(p)}
+                className={`shrink-0 rounded-full border px-2 py-0.5 text-[11px] font-semibold transition-colors ${parties.includes(p) ? "border-primary bg-primary/15 text-foreground" : "border-border text-muted-foreground hover:text-foreground"}`}
+              >
+                {p}
+              </button>
+            ))}
+          </div>
+        )}
       </header>
 
       <div className="flex-1 overflow-y-auto">
-        <Scoreboard state={state} office={office} />
-        <Evolution state={state} office={office} />
+        <Scoreboard state={state} office={office} parties={parties} />
+        <Evolution state={state} office={office} parties={parties} />
         <Zones state={state} office={office} />
         <Feed state={state} />
       </div>
@@ -106,21 +159,26 @@ export function CityColumn({ state, onRemove, onMove, isFirst, isLast }: Props) 
   );
 }
 
-function Scoreboard({ state, office }: { state: CityState; office: Office }) {
+function Scoreboard({ state, office, parties }: { state: CityState; office: Office; parties: string[] }) {
   const o = state.offices[office];
   const total = validVotes(state);
   const rows = o.candidates
     .map((c, i) => ({ c, share: o.shares[i] ?? 0 }))
     .sort((a, b) => (a.c.name === "Outros" ? 1 : b.c.name === "Outros" ? -1 : b.share - a.share));
   const isDep = office === "deputados";
-  const shown = isDep ? rows.slice(0, 10) : rows;
+  const leaderId = rows[0]?.c.id;
+  const filtered = parties.length ? rows.filter((r) => parties.includes(r.c.party)) : rows;
+  const shown = isDep ? filtered.slice(0, 10) : filtered;
+  const rankOf = (id: string) => rows.findIndex((r) => r.c.id === id);
 
   return (
     <div className="border-b border-border">
-      {shown.map(({ c, share }, idx) => {
-        const leader = idx === 0;
+      {shown.length === 0 && <p className="px-3 py-4 text-xs text-muted-foreground">Nenhum candidato deste partido para o cargo.</p>}
+      {shown.map(({ c, share }) => {
+        const idx = rankOf(c.id);
+        const leader = c.id === leaderId;
         return (
-          <div key={c.id} className="flex items-center gap-2.5 px-3 py-2 hover:bg-accent/60">
+          <div key={leader ? `${c.id}-lead` : c.id} className={`flex items-center gap-2.5 px-3 py-2 transition-colors hover:bg-accent/60 ${leader ? "animate-flash" : ""}`}>
             {isDep ? (
               <span className="tnum w-5 text-right text-xs text-muted-foreground">{idx + 1}º</span>
             ) : (
@@ -138,7 +196,7 @@ function Scoreboard({ state, office }: { state: CityState; office: Office }) {
                   {c.number && <span className="ml-1.5 text-xs font-normal text-muted-foreground">{c.party} · {c.number}</span>}
                 </span>
                 <span className={`tnum shrink-0 ${leader ? "text-[15px] font-bold" : "text-[13px] font-semibold"}`}>
-                  {pct(share * 100)}%
+                  <Num value={share * 100} format={(n) => pct(n)} />%
                 </span>
               </div>
               <div className="mt-1 flex items-center gap-2">
@@ -149,7 +207,7 @@ function Scoreboard({ state, office }: { state: CityState; office: Office }) {
                   />
                 </div>
                 <span className="tnum w-[76px] text-right text-[11px] text-muted-foreground">
-                  {nf.format(Math.round(share * total))}
+                  <Num value={share * total} format={(n) => nf.format(Math.round(n))} />
                 </span>
               </div>
             </div>
@@ -172,9 +230,10 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
   return <h3 className="px-3 pt-3 text-xs font-bold text-muted-foreground">{children}</h3>;
 }
 
-function Evolution({ state, office }: { state: CityState; office: Office }) {
+function Evolution({ state, office, parties }: { state: CityState; office: Office; parties: string[] }) {
   const o = state.offices[office];
-  const lines = office === "deputados" ? o.candidates.slice(0, 4) : o.candidates.filter((c) => c.name !== "Outros");
+  const base = office === "deputados" ? o.candidates.slice(0, 4) : o.candidates.filter((c) => c.name !== "Outros");
+  const lines = parties.length ? base.filter((c) => parties.includes(c.party)) : base;
   const depColors = [1, 2, 3, 4];
   return (
     <div className="border-b border-border pb-2">
@@ -189,7 +248,7 @@ function Evolution({ state, office }: { state: CityState; office: Office }) {
           formatter={(v: number, k: string) => [`${pct(v)}%`, o.candidates.find((c) => c.id === k)?.name ?? k]}
         />
         {lines.map((c, i) => (
-          <Line key={c.id} dataKey={c.id} dot={false} isAnimationActive={false} strokeWidth={1.75} stroke={partyColor(office === "deputados" ? (depColors[i] ?? 1) : c.color)} />
+          <Line key={c.id} dataKey={c.id} dot={false} isAnimationActive={false} type="monotone" strokeWidth={1.75} stroke={partyColor(office === "deputados" ? (depColors[i] ?? 1) : c.color)} />
         ))}
       </LineChart>
     </div>
@@ -211,7 +270,7 @@ function Zones({ state, office }: { state: CityState; office: Office }) {
               key={z.n}
               title={`${isNational(state.id) ? UFS[z.n] : `Zona ${z.n}`} · ${pct(zp, 1)}% · ${lead.name}`}
               className="relative flex aspect-square items-end justify-start p-1 text-[10px] font-semibold text-primary-foreground"
-              style={{ background: color, opacity: 0.25 + (zp / 100) * 0.75 }}
+              style={{ background: color, opacity: 0.25 + (zp / 100) * 0.75, transition: "opacity .7s, background-color .7s" }}
             >
               <span className="tnum">{isNational(state.id) ? UFS[z.n] : z.n}</span>
             </div>
@@ -241,7 +300,7 @@ function Feed({ state }: { state: CityState }) {
       <SectionTitle>Atualizações</SectionTitle>
       <ul className="mt-1">
         {state.feed.map((f) => (
-          <li key={f.id} className="flex gap-2.5 border-t border-border px-3 py-2.5 first:border-t-0 animate-fade-in">
+          <li key={f.id} className={`flex gap-2.5 border-t border-border px-3 py-2.5 first:border-t-0 animate-feed-in ${f.kind === "virada" ? "bg-destructive/5" : ""}`}>
             <span className="grid size-8 shrink-0 place-items-center rounded-full bg-secondary text-[11px] font-bold text-muted-foreground">
               {state.city.uf}
             </span>

@@ -1,6 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useReducer, useRef, useState } from "react";
-import { Plus, Pause, Play, Search } from "lucide-react";
+import { Plus, Pause, Play, Search, Sun, Moon } from "lucide-react";
+import { Logo } from "@/components/deck/Logo";
+import { Tip } from "@/components/deck/Tip";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import { CityColumn } from "@/components/deck/CityColumn";
 import { CITIES, SIM_START, createCityState, fmtClock, tickCity, type CityState } from "@/lib/election/mock";
 
@@ -69,7 +72,15 @@ function Deck() {
   const [adding, setAdding] = useState(false);
   const loaded = useRef(false);
   const [mounted, setMounted] = useState(false);
-  useEffect(() => setMounted(true), []);
+  const [light, setLight] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+    setLight(localStorage.getItem("apuracao26:theme") === "light");
+  }, []);
+  useEffect(() => {
+    document.documentElement.classList.toggle("light", light);
+    if (mounted) localStorage.setItem("apuracao26:theme", light ? "light" : "dark");
+  }, [light, mounted]);
 
   useEffect(() => {
     try {
@@ -94,44 +105,61 @@ function Deck() {
   };
 
   return (
+    <TooltipProvider delayDuration={150}>
     <div className="flex h-screen overflow-hidden bg-background text-foreground">
       <aside className="flex w-[60px] shrink-0 flex-col items-center gap-1 border-r border-sidebar-border bg-sidebar py-3">
-        <div className="mb-2 grid size-9 place-items-center rounded bg-primary text-[13px] font-black text-primary-foreground">26</div>
-        <button
-          aria-label="Adicionar cidade"
-          onClick={() => setAdding((v) => !v)}
-          className="grid size-10 place-items-center rounded-full text-muted-foreground hover:bg-sidebar-accent hover:text-foreground"
-        >
-          <Plus className="size-5" />
-        </button>
+        <Tip label="Apura26 · Eleições 2026">
+          <span><Logo className="mb-2 size-10" /></span>
+        </Tip>
+        <Tip label="Adicionar cidade">
+          <button
+            aria-label="Adicionar cidade"
+            onClick={() => setAdding((v) => !v)}
+            className="grid size-10 place-items-center rounded-full text-muted-foreground hover:bg-sidebar-accent hover:text-foreground"
+          >
+            <Plus className="size-5" />
+          </button>
+        </Tip>
         <div className="my-2 h-px w-8 bg-sidebar-border" />
         <div className="flex flex-1 flex-col items-center gap-1 overflow-y-auto">
           {s.cols.map((c) => (
-            <button
-              key={c.id}
-              title={c.city.name}
-              onClick={() => document.getElementById(`col-${c.id}`)?.scrollIntoView({ behavior: "smooth", inline: "center" })}
-              className="grid size-9 place-items-center rounded text-[11px] font-bold text-muted-foreground hover:bg-sidebar-accent hover:text-foreground"
-            >
-              {c.city.name.slice(0, 3).toUpperCase()}
-            </button>
+            <Tip key={c.id} label={`Ir para ${c.city.name}`}>
+              <button
+                onClick={() => document.getElementById(`col-${c.id}`)?.scrollIntoView({ behavior: "smooth", inline: "center" })}
+                className="grid size-9 shrink-0 place-items-center rounded text-[11px] font-bold text-muted-foreground hover:bg-sidebar-accent hover:text-foreground"
+              >
+                {c.city.name.slice(0, 3).toUpperCase()}
+              </button>
+            </Tip>
           ))}
         </div>
-        <button
-          aria-label={s.paused ? "Retomar" : "Pausar"}
-          onClick={() => dispatch({ t: "pause" })}
-          className="grid size-10 place-items-center rounded-full text-muted-foreground hover:bg-sidebar-accent hover:text-foreground"
-        >
-          {s.paused ? <Play className="size-4" /> : <Pause className="size-4" />}
-        </button>
-        <div className="mt-1 text-center text-[10px] leading-tight text-muted-foreground">
-          <span className={`mx-auto mb-1 block size-1.5 rounded-full ${s.paused ? "bg-muted-foreground" : "bg-destructive animate-pulse"}`} />
-          <span className="tnum">{fmtClock(s.clock)}</span>
-        </div>
+        <Tip label={light ? "Mudar para modo escuro" : "Mudar para modo claro"}>
+          <button
+            aria-label={light ? "Modo escuro" : "Modo claro"}
+            onClick={() => setLight((v) => !v)}
+            className="grid size-10 place-items-center rounded-full text-muted-foreground hover:bg-sidebar-accent hover:text-foreground"
+          >
+            {light ? <Moon className="size-4" /> : <Sun className="size-4" />}
+          </button>
+        </Tip>
+        <Tip label={s.paused ? "Simulação pausada · clique para retomar" : "Ao vivo · clique para pausar"}>
+          <button
+            aria-label={s.paused ? "Retomar" : "Pausar"}
+            onClick={() => dispatch({ t: "pause" })}
+            className="group mt-1 flex w-12 flex-col items-center gap-1 rounded-md py-1.5 text-muted-foreground hover:bg-sidebar-accent hover:text-foreground"
+          >
+            <span className="flex items-center gap-1">
+              <span className={`size-1.5 rounded-full ${s.paused ? "bg-muted-foreground" : "bg-destructive animate-pulse"}`} />
+              {s.paused ? <Play className="size-3" /> : <Pause className="size-3" />}
+            </span>
+            <span className="tnum text-[11px] font-semibold">{fmtClock(s.clock)}</span>
+          </button>
+        </Tip>
       </aside>
 
       {adding && <AddPanel existing={s.cols.map((c) => c.id)} onAdd={add} onClose={() => setAdding(false)} />}
 
+      <div className="flex min-w-0 flex-1 flex-col">
       <main className="flex flex-1 overflow-x-auto">
         {mounted && s.cols.map((c, i) => (
           <CityColumn
@@ -152,7 +180,15 @@ function Deck() {
           {s.cols.length === 0 && <span className="px-6 text-center text-xs">Cada cidade vira uma coluna com a apuração ao vivo.</span>}
         </button>
       </main>
+      <footer className="flex h-7 shrink-0 items-center justify-between border-t border-border bg-sidebar px-3 text-[11px] text-muted-foreground">
+        <span>Apura26 · dados fictícios para protótipo</span>
+        <a href="https://instagram.com/davimoura.dev" target="_blank" rel="noreferrer" className="hover:text-foreground">
+          por <span className="font-semibold text-foreground">@davimoura.dev</span>
+        </a>
+      </footer>
+      </div>
     </div>
+    </TooltipProvider>
   );
 }
 
