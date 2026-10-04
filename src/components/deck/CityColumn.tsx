@@ -560,11 +560,15 @@ function States({ br, ufRaces }: { br: Race; ufRaces: Race[] }) {
             <div
               key={r.meta.key}
               title={`${label} · ${pct(r.data.progress, 1)}% · ${name}`}
-              className={`relative flex aspect-square items-end justify-start p-1 text-[10px] font-semibold ${counted ? "text-primary-foreground" : "text-muted-foreground"}`}
+              className={`relative flex aspect-square items-end justify-start p-1 text-[10px] font-semibold ${counted ? "text-white [text-shadow:0_0_3px_rgb(0_0_0/0.55)]" : "text-muted-foreground"}`}
+              // Strength of the color shows how much was counted: only the background's alpha
+              // changes (mixing with the surface would shift the party hue), and the label stays
+              // readable.
               style={{
-                background: color,
-                opacity: counted ? 0.25 + (r.data.progress / 100) * 0.75 : 1,
-                transition: "opacity .7s, background-color .7s",
+                background: counted
+                  ? `color-mix(in oklab, ${color} ${Math.round(35 + (r.data.progress / 100) * 65)}%, transparent)`
+                  : color,
+                transition: "background-color .7s",
               }}
             >
               <span className="tnum">{label}</span>
@@ -579,7 +583,7 @@ function States({ br, ufRaces }: { br: Race; ufRaces: Race[] }) {
             {displayName(c.name).split(" ").slice(-1)[0]}
           </span>
         ))}
-        <span>· opacidade = % apurado</span>
+        <span>· cor mais forte = mais apurado</span>
       </div>
     </div>
   );
