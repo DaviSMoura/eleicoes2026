@@ -1,10 +1,11 @@
 import { describe, expect, it } from "vitest";
 
 import { normalizeResult, type RawResult } from "../../../supabase/functions/_shared/tse";
-import { projectNational, trendsFor, type Race } from "./trends";
+import { mathDecided, projectNational, trendsFor, type Race } from "./trends";
 
 import brPres from "./__fixtures__/br-c0001-e006257-u.json";
 import spSen from "./__fixtures__/sp-c0005-e006259-u.json";
+import spGovRaw from "./__fixtures__/sp-c0003-e006259-u.json";
 import pref2024 from "./__fixtures__/sp71072-c0011-e000619-u.json";
 
 function race(key: string, raw: unknown, votes: Record<string, number> = {}, progress = 0): Race {
@@ -91,5 +92,84 @@ describe("projectNational", () => {
     const ufYDone = race("sp-c0001-e006257", brPres, { [a]: 800, [b]: 1200 }, 100);
     const proj2 = projectNational(nat, [ufX, ufYDone]);
     expect(proj2.get(a)).toBeCloseTo(((1400 + 800) / 4000) * 100, 5);
+  });
+});
+
+describe("mathDecided", () => {
+  // Real numbers from Mato Grosso do Sul, 04/10 18:2x: Governador with 83.55% counted.
+  const gov = (lead: number, second: number, valid: number, remaining: number): Race => {
+    const r = race("ms-c0003-e006259", spGovRaw);
+    const [a, b] = r.meta.candidates.map((c) => c.id);
+    return {
+      ...r,
+      data: {
+        ...r.data,
+        progress: 83.55,
+        valid,
+        electorate: 2_000_000,
+        electorateCounted: 2_000_000 - remaining,
+        votes: r.data.votes.map(([id, , s]): [string, number, string] => [
+          id,
+          id === a ? lead : id === b ? second : 0,
+          s,
+        ]),
+      },
+    };
+  };
+
+  it("elects the Governador leader when even all remaining voters cannot pull him under 50%", () => {
+    const r = gov(767_780, 263_244, 1_100_000, 337_260);
+    expect(mathDecided(r)).toEqual([r.meta.candidates[0]!.id]);
+    expect(trendsFor(r).call.text).toMatch(/já matematicamente definido/);
+  });
+
+  it("waits while the remaining voters could still force a runoff", () => {
+    expect(mathDecided(gov(700_000, 400_000, 1_100_000, 337_260))).toEqual([]);
+  });
+
+  it("only decides where the election happens", () => {
+    const state = gov(767_780, 263_244, 1_100_000, 337_260);
+    // Same numbers in a city column: Governador is decided by the whole state.
+    const city: Race = {
+      ...state,
+      meta: { ...state.meta, abr: "ms90514", key: "ms90514-c0003-e006259" },
+    };
+    expect(mathDecided(city)).toEqual([]);
+    // Presidente counted in one state elects nobody, only Brasil does.
+    const presUf: Race = { ...state, meta: { ...state.meta, cargo: 1, abr: "ms" } };
+    expect(mathDecided(presUf)).toEqual([]);
+    const presBr: Race = { ...state, meta: { ...state.meta, cargo: 1, abr: "br" } };
+    expect(mathDecided(presBr)).toHaveLength(1);
+  });
+
+  it("needs the turnout base to decide anything", () => {
+    const r = gov(767_780, 263_244, 1_100_000, 337_260);
+    const { electorateCounted: _, ...data } = r.data;
+    expect(mathDecided({ ...r, data })).toEqual([]);
+  });
+
+  it("settles one Senate seat and keeps the other open", () => {
+    const base = race("sp-c0005-e006259", spSen);
+    const [x, y, z] = base.meta.candidates.map((c) => c.id);
+    const r: Race = {
+      ...base,
+      data: {
+        ...base.data,
+        progress: 90,
+        valid: 1_000_000,
+        electorate: 1_100_000,
+        electorateCounted: 1_000_000,
+        votes: base.data.votes.map(([id, , s]): [string, number, string] => [
+          id,
+          id === x ? 500_000 : id === y ? 260_000 : id === z ? 240_000 : 0,
+          s,
+        ]),
+      },
+    };
+    expect(mathDecided(r)).toEqual([x]);
+    const tr = trendsFor(r);
+    expect(tr.items.find((t) => t.id === x)!.win).toBe(1);
+    expect(tr.call.text).toMatch(/^Marina Silva já está eleito; /);
+    expect(tr.call.text).not.toMatch(/Marina Silva.*Marina Silva/);
   });
 });

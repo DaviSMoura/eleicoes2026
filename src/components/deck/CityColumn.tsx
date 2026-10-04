@@ -267,13 +267,21 @@ function Avatar({ race, id, name }: { race: Race; id: string; name: string }) {
   );
 }
 
-function StatusBadge({ status }: { status: string }) {
-  if (/^eleit/i.test(status))
-    return (
+function StatusBadge({ status, decided }: { status: string; decided?: boolean }) {
+  if (/^eleit/i.test(status) || (!status && decided)) {
+    const badge = (
       <span className="rounded-sm border border-[var(--party-4)] px-1 text-[10px] font-semibold text-[var(--party-4)]">
         eleito
       </span>
     );
+    return status ? (
+      badge
+    ) : (
+      <Tip label="Matematicamente eleito: nem com todos os votos que faltam apurar os adversários alcançam. O TSE ainda não publicou o resultado final.">
+        {badge}
+      </Tip>
+    );
+  }
   if (/2º turno/i.test(status))
     return (
       <span className="rounded-sm border border-border px-1 text-[10px] text-muted-foreground">
@@ -408,7 +416,7 @@ function Scoreboard({
                     }}
                   />
                 </div>
-                <StatusBadge status={status} />
+                <StatusBadge status={status} decided={tr.decided.includes(c.id)} />
                 <Delta d={deltaOf(c.id)} />
                 <span className="tnum w-[76px] text-right text-[11px] text-muted-foreground">
                   <Num value={votes} format={(n) => nf.format(Math.round(n))} />

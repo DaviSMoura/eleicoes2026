@@ -31,6 +31,7 @@ export type TrendSummary = {
   runoffPair: [string, string] | null;
   winLabel: string;
   call: { kind: "vitoria" | "segundo-turno" | "lider" | "indefinido"; text: string };
+  decided: string[]; // candidates already elected for sure (see mathDecided)
 };
 
 const MAJORITARIAN = new Set([1, 3, 5]);
@@ -93,6 +94,32 @@ function hash(s: string) {
 const isElected = (status: string) => /^eleit/i.test(status);
 const isRunoff = (status: string) => /2º turno/i.test(status);
 
+// Candidates already elected no matter how the votes still to be counted go. Worst case: every
+// voter of the sections not yet counted shows up and votes validly for a rival.
+// - with a runoff (Presidente, Governador): the leader keeps more than half of the valid votes;
+// - Senador: a candidate within the seats stays ahead of the first one outside them.
+export function mathDecided(race: Race): string[] {
+  const { meta, data } = race;
+  if (!MAJORITARIAN.has(meta.cargo) || !data.electorateCounted) return [];
+  // Only where the election is actually decided: Presidente in Brasil, Governador and Senador
+  // in their state. Leading the Presidente count in one state, or a state race in one city,
+  // elects nobody.
+  const isState = meta.abr.length === 2 && meta.abr !== "br" && meta.abr !== "zz";
+  const electionScope = meta.cargo === 1 ? meta.abr === "br" : isState;
+  if (!electionScope) return [];
+  const remaining = Math.max(0, data.electorate - data.electorateCounted);
+  const ranked = [...data.votes].sort((a, b) => b[1] - a[1]);
+  if (RUNOFF.has(meta.cargo)) {
+    const lead = ranked[0];
+    return lead && lead[1] > (validOf(data) + remaining) / 2 ? [lead[0]] : [];
+  }
+  const firstOut = ranked[meta.seats]?.[1] ?? 0;
+  return ranked
+    .slice(0, meta.seats)
+    .filter(([, v]) => v > firstOut + remaining)
+    .map(([id]) => id);
+}
+
 export function trendsFor(race: Race, ufs?: Race[]): TrendSummary {
   const { meta, data, history } = race;
   const p = data.progress / 100;
@@ -132,6 +159,7 @@ export function trendsFor(race: Race, ufs?: Race[]): TrendSummary {
         items,
         runoff: 1,
         runoffPair: [runoff[0]!, runoff[1]!],
+        decided: [],
         winLabel,
         call: {
           kind: "segundo-turno",
@@ -143,9 +171,24 @@ export function trendsFor(race: Race, ufs?: Race[]): TrendSummary {
         items,
         runoff: 0,
         runoffPair: null,
+        decided: [],
         winLabel,
         call: { kind: "vitoria", text: `Eleito: ${elected.map(nameOf).join(" e ")}` },
       };
+  }
+
+  const decided = mathDecided(race);
+  const decidedText = decided.map(nameOf).join(" e ");
+  if (decided.length > 0 && (decided.length >= seats || hasRunoff)) {
+    items.forEach((t) => (t.win = decided.includes(t.id) ? 1 : 0));
+    return {
+      items,
+      runoff: 0,
+      runoffPair: null,
+      decided,
+      winLabel,
+      call: { kind: "vitoria", text: `Eleito: ${decidedText}, já matematicamente definido` },
+    };
   }
 
   if (!MAJORITARIAN.has(meta.cargo))
@@ -153,6 +196,7 @@ export function trendsFor(race: Race, ufs?: Race[]): TrendSummary {
       items,
       runoff: 0,
       runoffPair: null,
+      decided,
       winLabel,
       call: { kind: "indefinido", text: "Ordem dos mais votados tende a se manter." },
     };
@@ -162,6 +206,7 @@ export function trendsFor(race: Race, ufs?: Race[]): TrendSummary {
       items,
       runoff: 0,
       runoffPair: null,
+      decided,
       winLabel,
       call: { kind: "indefinido", text: "Aguardando as primeiras seções totalizadas." },
     };
@@ -207,5 +252,19 @@ export function trendsFor(race: Race, ufs?: Race[]): TrendSummary {
       text: `${nameOf(top.id)} deve terminar em 1º; 2º turno ainda indefinido.`,
     };
   else call = { kind: "indefinido", text: "Disputa indefinida, sem tendência clara ainda." };
-  return { items, runoff: runoffP, runoffPair: pair, winLabel, call };
+
+  // Part of the seats already settled (Senador with two seats): say so, keep simulating the rest.
+  if (decided.length > 0) {
+    items.forEach((t) => decided.includes(t.id) && (t.win = 1));
+    const open = seats - decided.length;
+    const others = bestIds.filter((id) => !decided.includes(id)).map(nameOf);
+    const rest =
+      call.kind === "vitoria" && others.length > 0
+        ? `tendência de ${others.join(" e ")} ${open === 1 ? "na outra vaga" : "nas outras vagas"}`
+        : open === 1
+          ? "a outra vaga segue em disputa"
+          : `${open} vagas seguem em disputa`;
+    call = { kind: "lider", text: `${decidedText} já está eleito; ${rest}.` };
+  }
+  return { items, runoff: runoffP, runoffPair: pair, decided, winLabel, call };
 }

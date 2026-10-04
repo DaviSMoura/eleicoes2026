@@ -62,7 +62,9 @@ function Deck() {
   useEffect(() => {
     try {
       const ids: unknown = JSON.parse(localStorage.getItem(KEY) ?? "null");
-      if (Array.isArray(ids)) setCols(ids.filter((x): x is string => typeof x === "string"));
+      // Tolerate edited or corrupted storage: strings only, no repeated columns.
+      if (Array.isArray(ids))
+        setCols([...new Set(ids.filter((x): x is string => typeof x === "string"))]);
     } catch {
       // Storage indisponível ou valor corrompido: mantém as colunas padrão.
     }
