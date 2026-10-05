@@ -43,11 +43,12 @@ export function SubJudiceNote({
           className="flex shrink-0 items-center gap-1.5 text-muted-foreground hover:text-foreground"
         >
           {many ? "se anulados" : "se anulado"}
+          {/* Flex track, no absolute thumb: same rendering in every browser. */}
           <span
-            className={`relative h-3.5 w-6 rounded-full transition-colors ${on ? "bg-primary" : "bg-input"}`}
+            className={`flex h-4 w-7 shrink-0 items-center rounded-full p-0.5 transition-colors ${on ? "bg-primary" : "bg-input"}`}
           >
             <span
-              className={`absolute top-0.5 size-2.5 rounded-full bg-background shadow-sm transition-transform ${on ? "translate-x-3" : "translate-x-0.5"}`}
+              className={`size-3 rounded-full bg-white shadow-sm transition-transform ${on ? "translate-x-3" : "translate-x-0"}`}
             />
           </span>
         </button>
