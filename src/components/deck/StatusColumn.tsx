@@ -358,22 +358,31 @@ function OfficeView({
   }
   const legend = [...leaders.values()].sort((a, b) => b.states - a.states);
 
+  const plural = (n: number, one: string, many: string) => [n, n === 1 ? one : many] as const;
   const summary =
     office === "Presidente"
       ? null
       : office === "Governador"
         ? [
-            [count(["eleito"]), count(["eleito"]) === 1 ? "eleito" : "eleitos"],
-            [count(["segundo-turno"]), "com 2º turno"],
-            [count(["tende-segundo-turno"]), "tendem ao 2º turno"],
-            [count(["tende-vencer", "lidera", "disputa", "parcial", "aguardando"]), "em disputa"],
+            plural(count(["eleito"]), "eleito", "eleitos"),
+            plural(count(["segundo-turno"]), "com 2º turno", "com 2º turno"),
+            plural(count(["tende-segundo-turno"]), "tende ao 2º turno", "tendem ao 2º turno"),
+            plural(
+              count(["tende-vencer", "lidera", "disputa", "parcial", "aguardando"]),
+              "em disputa",
+              "em disputa",
+            ),
           ]
         : [
             [
               inMap.reduce((n, [, s]) => n + s.decided.length, 0),
               `de ${inMap.length * 2} vagas definidas`,
-            ],
-            [count(["eleito"]), "estados com as duas vagas definidas"],
+            ] as const,
+            plural(
+              count(["eleito"]),
+              "estado com as duas vagas definidas",
+              "estados com as duas vagas definidas",
+            ),
           ];
 
   const nationalCall = national ? trendsFor(national.br, national.ufs).call.text : null;

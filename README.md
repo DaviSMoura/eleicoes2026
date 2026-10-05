@@ -38,7 +38,7 @@ Fechou a aba e voltou depois, tá tudo lá, do jeito que você deixou.
 - O mapa pinta cada estado com a cor do partido de quem lidera. Quanto mais apurado, mais forte a cor.
 - Onde o resultado já tá definido aparece um ✓. Vale quando o TSE publica o eleito ou o 2º turno, e também quando a conta já fecha antes disso - quem tá na frente não tem mais como ser alcançado nem com todos os votos que faltam.
 - Em cima, o resumo: quantos governadores já foram eleitos, quantos estados tendem ao 2º turno, quantas das 54 vagas do Senado já estão definidas.
-- Embaixo, a lista estado por estado, com quem lidera, o percentual e a situação.
+- Embaixo, a lista estado por estado, com quem lidera, o percentual e a situação: eleito em verde, 2º turno em laranja.
 - Em Presidente não tem ✓ por estado, porque presidente se decide no país todo. No topo aparece a tendência nacional.
 
 Na aba **Senador** tem também uma pizza com as 54 vagas por partido - os dois mais votados de cada estado, como se a apuração acabasse agora, e quantas já estão definidas.
@@ -63,6 +63,7 @@ Em cada coluna tem uma aba por cargo: Presidente, Governador, Senador, Deputado 
 A coluna do Brasil só tem Presidente, porque é o único cargo votado no país todo.
 
 Pra cada candidato aparece a foto, o partido, o número, a porcentagem dos votos válidos e o total de votos.
+A porcentagem é calculada igual à do TSE, então o número aqui bate com o do app oficial até a segunda casa.
 A setinha verde ou vermelha mostra se ele subiu ou caiu nas últimas atualizações.
 A cor segue o partido, do jeito que todo mundo reconhece: PT vermelho, PL azul, Missão amarelo, NOVO laranja.
 Ela não muda quando alguém passa outro candidato.
@@ -71,7 +72,32 @@ Ela não muda quando alguém passa outro candidato.
 - **Busca:** dá pra procurar por nome, número ou partido, sem se preocupar com acento.
 - **Mostrar mais:** as listas de deputado começam nos 10 mais votados. Em São Paulo são mais de 1.300 candidatos a deputado estadual, então dá pra ir abrindo de 50 em 50.
 
+Do lado da barrinha aparecem os selos:
+
+- **eleito**, em verde, quando o candidato já ganhou.
+- **2º turno**, em laranja, quando ele já tá garantido no 2º turno.
+- **sub judice**, quando a candidatura ainda tá sendo julgada (mais sobre isso abaixo).
+
+Quando o selo vem da conta e não do TSE, passa o mouse nele pra ver o porquê.
+
 <img src="docs/screenshots/deputados.png" alt="Lista de deputados estaduais de São Paulo com fotos e busca" width="340">
+
+### Candidato sub judice
+
+Às vezes a Justiça Eleitoral ainda não decidiu se a candidatura de alguém vale.
+Enquanto isso, o candidato aparece na urna, recebe voto, e o TSE conta esses votos no percentual de todo mundo.
+Se a candidatura for barrada, os votos dele viram nulos e saem da conta - e aí o percentual dos outros sobe.
+
+Toda disputa com candidato sub judice tem uma linha em cima do placar dizendo quem é.
+Clicando no nome aparece a explicação.
+O botão **se anulado** mostra como ficaria se a candidatura caísse: os percentuais sem esses votos e o que muda no resultado.
+
+O caso que mais pesa em 2026 é o Governador do Rio.
+Contando os votos do Garotinho, que tá sub judice, o Douglas Ruas fica abaixo de 50% e vai pro 2º turno.
+Sem eles, passa de 50% e ganha no 1º turno.
+Pra deputado as vagas não mudam, porque a conta do quociente já deixa esses votos de fora.
+
+<img src="docs/screenshots/sub-judice.png" alt="Governador do Rio com o Garotinho sub judice e o cenário com os votos dele anulados" width="340">
 
 ### A página do candidato
 
@@ -102,7 +128,15 @@ No Senado é igual: o candidato tá eleito se continua na frente do primeiro que
 Isso só vale onde a eleição acontece de verdade - Presidente no Brasil, Governador e Senador no estado.
 Ganhar o Presidente num estado não elege ninguém.
 
-<img src="docs/screenshots/eleito.png" alt="Governador de Mato Grosso do Sul já matematicamente eleito" width="340">
+O 2º turno também dá pra cravar antes.
+Ele tá garantido quando ninguém consegue mais passar de 50%, nem levando todos os votos que faltam, e quando os dois primeiros não podem mais ser alcançados por quem tá atrás.
+Aí os dois ganham o selo de 2º turno e a tendência diz que o 2º turno já tá definido.
+Se tem candidato sub judice no meio, a conta testa os dois cenários e só crava quando o resultado é o mesmo nos dois.
+
+<p>
+<img src="docs/screenshots/eleito.png" alt="Governador de Mato Grosso do Sul já eleito" width="340">
+<img src="docs/screenshots/segundo-turno.png" alt="Flavio Bolsonaro e Lula com o selo de 2º turno" width="340">
+</p>
 
 ### Quociente eleitoral
 
@@ -165,7 +199,7 @@ O backend é Supabase: Postgres pros resultados e o histórico, Edge Functions p
 
 - `supabase/functions/poll-tse` roda a cada 5 segundos pelo `pg_cron`. Ele usa requisições condicionais ao CDN do TSE, divide o trabalho entre workers e descarta respostas de servidores do CDN que ainda tão com uma versão antiga do arquivo.
 - `supabase/functions/watch` entrega o estado atual e o histórico quando alguém abre uma coluna, e marca aquela disputa como acompanhada.
-- Cada lugar tem um canal no Realtime (`abr:<lugar>`), e o Presidente de todos os estados tem um canal só (`pres-uf`).
+- Cada lugar tem um canal no Realtime (`abr:<lugar>`). Pra coluna Status, cada cargo tem um canal só com todos os estados: `pres-uf`, `gov-uf`, `sen-uf`, `fed-uf` e `est-uf`.
 - `supabase/functions/_shared/tse.ts` é TypeScript puro, usado pelas functions, pelo app e pelos testes.
 
 ```sh
