@@ -195,7 +195,7 @@ const isRunoff = (status: string) => /2º turno/i.test(status);
 // Only where the election is actually decided: Presidente in Brasil, Governador and Senador in
 // their state. Leading the Presidente count in one state, or a state race in one city, elects
 // nobody.
-function inElectionScope(meta: RaceMeta) {
+export function inElectionScope(meta: RaceMeta) {
   const isState = meta.abr.length === 2 && meta.abr !== "br" && meta.abr !== "zz";
   return meta.cargo === 1 ? meta.abr === "br" : isState;
 }

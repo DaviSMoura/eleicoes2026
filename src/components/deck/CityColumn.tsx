@@ -1,5 +1,6 @@
 import { Tip } from "./Tip";
 import { ResultBadge } from "./ResultBadge";
+import { SubJudiceNote } from "./SubJudiceNote";
 import { VoteStatusBadge } from "./VoteStatusBadge";
 import { Quociente } from "./Quociente";
 import { CandidateDetail } from "./CandidateDetail";
@@ -28,6 +29,7 @@ import {
   useColumn,
   pointValidOf,
   validOf,
+  annulledScenario,
   voteStatusOf,
   type Place,
   type Race,
@@ -295,6 +297,10 @@ function Scoreboard({
 }) {
   const { meta, data } = race;
   const valid = validOf(data);
+  const scenario = useMemo(() => annulledScenario(race), [race]);
+  // Per race, so switching tabs or columns never carries the scenario over.
+  const [annulledKey, setAnnulledKey] = useState<string | null>(null);
+  const annulled = scenario && annulledKey === meta.key ? scenario : null;
   const byId = new Map(data.votes.map(([id, v, s]) => [id, { votes: v, status: s }]));
   const rows = meta.candidates
     .map((c) => ({ c, votes: byId.get(c.id)?.votes ?? 0, status: byId.get(c.id)?.status ?? "" }))
@@ -344,6 +350,13 @@ function Scoreboard({
           )}
         </label>
       )}
+      {scenario && (
+        <SubJudiceNote
+          scenario={scenario}
+          on={!!annulled}
+          onToggle={() => setAnnulledKey(annulled ? null : meta.key)}
+        />
+      )}
       {shown.length === 0 && (
         <p className="px-3 py-4 text-xs text-muted-foreground">
           {q ? "Nenhum candidato encontrado." : "Nenhum candidato deste partido para o cargo."}
@@ -352,7 +365,14 @@ function Scoreboard({
       {shown.map(({ c, votes, status }) => {
         const idx = rankOf(c.id);
         const leader = c.id === leaderId;
-        const share = valid > 0 ? votes / valid : 0;
+        const scenarioShare = annulled ? annulled.share(c.id) : undefined;
+        const share =
+          scenarioShare === undefined
+            ? valid > 0
+              ? votes / valid
+              : 0
+            : (scenarioShare ?? 0) / 100;
+        const outOfScenario = scenarioShare === null;
         const name = displayName(c.name);
         return (
           <div
@@ -367,7 +387,7 @@ function Scoreboard({
                 onSelect(c.id);
               }
             }}
-            className={`flex cursor-pointer items-center gap-2.5 px-3 py-2 outline-none transition-colors hover:bg-accent/60 focus-visible:bg-accent/60 ${leader ? "animate-flash" : ""}`}
+            className={`flex cursor-pointer items-center gap-2.5 px-3 py-2 outline-none transition-colors hover:bg-accent/60 focus-visible:bg-accent/60 ${leader ? "animate-flash" : ""} ${outOfScenario ? "opacity-50" : ""}`}
           >
             {isDep && (
               <span className="tnum w-8 shrink-0 text-right text-xs text-muted-foreground">
@@ -386,7 +406,13 @@ function Scoreboard({
                 <span
                   className={`tnum shrink-0 ${leader ? "text-[15px] font-bold" : "text-[13px] font-semibold"}`}
                 >
-                  <Num value={share * 100} format={(n) => pct(n)} />%
+                  {outOfScenario ? (
+                    "nulo"
+                  ) : (
+                    <>
+                      <Num value={share * 100} format={(n) => pct(n)} />%
+                    </>
+                  )}
                 </span>
               </div>
               <div className="mt-1 flex items-center gap-2">

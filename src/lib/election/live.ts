@@ -23,6 +23,7 @@ export type { HistoryPoint, Race, Trend, TrendPoint, TrendSummary } from "./tren
 export const voteStatusOf = (data: RaceData, id: string) =>
   data.voteStatus?.find(([c]) => c === id)?.[1];
 
+export { annulledScenario, type AnnulledScenario } from "./subjudice";
 export { pointValidOf, roundShares, trendPath, trendsFor, shareOf, validOf } from "./trends";
 export { distributeSeats, qeInputFor, quocienteEleitoral } from "./quociente";
 export type { QeResult, QeGroupResult } from "./quociente";
