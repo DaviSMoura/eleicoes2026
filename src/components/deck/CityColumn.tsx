@@ -712,7 +712,7 @@ function Delta({ d }: { d: number }) {
   return (
     <Tip label="Variação nas últimas atualizações">
       <span
-        className={`tnum inline-flex items-center gap-0.5 text-[10px] font-semibold ${up ? "text-[var(--party-4)]" : "text-destructive"}`}
+        className={`tnum inline-flex items-center gap-0.5 text-[10px] font-semibold ${up ? "text-[var(--party-4-text)]" : "text-destructive"}`}
       >
         {up ? <TrendingUp className="size-3" /> : <TrendingDown className="size-3" />}
         {up ? "+" : ""}

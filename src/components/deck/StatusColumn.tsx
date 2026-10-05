@@ -613,7 +613,7 @@ function ProportionalView({ cargo }: { cargo: ProportionalCargo }) {
                   <span
                     className={`w-[92px] shrink-0 text-right ${
                       final.has(uf)
-                        ? "font-semibold text-[var(--party-4)]"
+                        ? "font-semibold text-[var(--party-4-text)]"
                         : "text-muted-foreground"
                     }`}
                   >
@@ -660,7 +660,11 @@ function StateRow({
       {showState && (
         <span
           className={`w-[92px] shrink-0 text-right ${
-            settled ? "font-semibold text-[var(--party-4)]" : "text-muted-foreground"
+            s.state === "segundo-turno"
+              ? "font-semibold text-[var(--party-5-text)]"
+              : settled
+                ? "font-semibold text-[var(--party-4-text)]"
+                : "text-muted-foreground"
           }`}
         >
           {STATE_LABEL[s.state]}

@@ -90,6 +90,9 @@
   --party-3: oklch(0.655 0.14 88); /* yellow */
   --party-4: oklch(0.6 0.15 148); /* green */
   --party-5: oklch(0.66 0.15 55); /* orange */
+  /* Green and orange for small text (eleito, 2º turno, oficial): >= 4.5:1 on the card. */
+  --party-4-text: oklch(0.6 0.15 148);
+  --party-5-text: oklch(0.66 0.15 55);
   --party-6: oklch(0.58 0.17 300); /* purple */
   --party-7: oklch(0.66 0.18 352); /* pink */
   --party-8: oklch(0.64 0.12 218); /* cyan */
@@ -132,6 +135,8 @@
   --party-2: oklch(0.58 0.15 255);
   --party-3: oklch(0.76 0.15 88);
   --party-5: oklch(0.7 0.15 55);
+  --party-4-text: oklch(0.5 0.13 148);
+  --party-5-text: oklch(0.55 0.15 55);
   --party-6: oklch(0.56 0.17 300);
   --party-8: oklch(0.68 0.12 218);
   --party-9: oklch(0.5 0.11 50);

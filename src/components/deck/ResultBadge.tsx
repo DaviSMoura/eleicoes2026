@@ -23,13 +23,13 @@ export function ResultBadge({
   if (!elected && !inRunoff) return null;
   const badge = elected ? (
     <span
-      className={`shrink-0 rounded-sm border border-[var(--party-4)] font-semibold text-[var(--party-4)] ${size}`}
+      className={`shrink-0 rounded-sm border border-[var(--party-4-text)] font-semibold text-[var(--party-4-text)] ${size}`}
     >
       eleito
     </span>
   ) : (
     <span
-      className={`shrink-0 rounded-sm border border-border font-semibold text-foreground ${size}`}
+      className={`shrink-0 rounded-sm border border-[var(--party-5-text)] font-semibold text-[var(--party-5-text)] ${size}`}
     >
       2º turno
     </span>

@@ -151,7 +151,7 @@ function Section({
         Quociente eleitoral
         {badge && (
           <span
-            className={`rounded-sm border px-1 text-[10px] font-semibold ${official ? "border-[var(--party-4)] text-[var(--party-4)]" : "border-border"}`}
+            className={`rounded-sm border px-1 text-[10px] font-semibold ${official ? "border-[var(--party-4-text)] text-[var(--party-4-text)]" : "border-border"}`}
           >
             {official ? "oficial" : "simulação"}
           </span>

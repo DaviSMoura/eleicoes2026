@@ -206,9 +206,10 @@ function Photo({ race, id, name, color }: { race: Race; id: string; name: string
 
 function StatusBadge({ status }: { status: string }) {
   const elected = /^eleit/i.test(status);
+  const runoff = /2º turno/i.test(status);
   return (
     <span
-      className={`mt-2 rounded-sm border px-1.5 py-0.5 text-[11px] font-semibold ${elected ? "border-[var(--party-4)] text-[var(--party-4)]" : "border-border text-muted-foreground"}`}
+      className={`mt-2 rounded-sm border px-1.5 py-0.5 text-[11px] font-semibold ${elected ? "border-[var(--party-4-text)] text-[var(--party-4-text)]" : runoff ? "border-[var(--party-5-text)] text-[var(--party-5-text)]" : "border-border text-muted-foreground"}`}
     >
       {status}
     </span>
