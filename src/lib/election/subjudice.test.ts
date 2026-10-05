@@ -28,7 +28,7 @@ describe("annulledScenario", () => {
 
   it("says when the leader would win in the first round", () => {
     expect(annulledScenario(rj)!.outcome).toBe(
-      "Douglas Ruas ficaria com 51,55% dos válidos, mais da metade: venceria no 1º turno.",
+      "Douglas Ruas iria a 51,55% e venceria no 1º turno.",
     );
   });
 

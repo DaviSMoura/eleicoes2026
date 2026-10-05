@@ -32,7 +32,7 @@ export function annulledScenario(race: Race): AnnulledScenario | null {
 
   let outcome: string | null = null;
   if (PROPORTIONAL_CARGOS.has(meta.cargo))
-    outcome = "As vagas não mudam: a simulação do quociente já deixa esses votos de fora.";
+    outcome = "As vagas não mudam: o quociente já deixa esses votos de fora.";
   else if (data.progress > 0 && inElectionScope(meta)) {
     if (RUNOFF_CARGOS.has(meta.cargo)) {
       const [first, second] = ranked;
@@ -40,8 +40,8 @@ export function annulledScenario(race: Race): AnnulledScenario | null {
         const top = (first[1] / valid) * 100;
         outcome =
           top > 50
-            ? `${nameOf(first[0])} ficaria com ${pct(top)}% dos válidos, mais da metade: venceria no 1º turno.`
-            : `Ninguém passaria de 50% dos válidos: 2º turno entre ${nameOf(first[0])} e ${nameOf(second[0])}.`;
+            ? `${nameOf(first[0])} iria a ${pct(top)}% e venceria no 1º turno.`
+            : `Ninguém passaria de 50%: 2º turno entre ${nameOf(first[0])} e ${nameOf(second[0])}.`;
       }
     } else {
       const seats = ranked.slice(0, meta.seats).map(([id]) => nameOf(id));

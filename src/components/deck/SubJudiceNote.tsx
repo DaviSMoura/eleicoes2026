@@ -1,15 +1,9 @@
-import { Scale } from "lucide-react";
+import { useState } from "react";
+import { ChevronDown } from "lucide-react";
 import type { AnnulledScenario } from "@/lib/election/live";
 
-const who = (names: string[]) =>
-  names.length === 1
-    ? `${names[0]} está sub judice`
-    : names.length <= 3
-      ? `${names.slice(0, -1).join(", ")} e ${names.at(-1)} estão sub judice`
-      : `${names.length} candidatos estão sub judice`;
-
-// Disclaimer on a race with candidates sub judice, with the switch to the scenario where their
-// votes are annulled.
+// One line on a race with candidates sub judice: who (expands to the why) and a switch to the
+// scenario where their votes are annulled, with its effect on the result.
 export function SubJudiceNote({
   scenario,
   on,
@@ -19,36 +13,53 @@ export function SubJudiceNote({
   on: boolean;
   onToggle: () => void;
 }) {
-  const many = scenario.names.length > 1;
+  const [open, setOpen] = useState(false);
+  const { names } = scenario;
+  const many = names.length > 1;
   return (
-    <div className="mx-3 mt-2 rounded border border-border bg-muted/40 px-2.5 py-2 text-[11px] leading-snug">
-      <p className="flex gap-1.5">
-        <Scale className="mt-px size-3.5 shrink-0 text-muted-foreground" />
-        <span>
-          <span className="font-semibold">{who(scenario.names)}.</span>{" "}
-          <span className="text-muted-foreground">
-            O TSE conta {many ? "esses votos" : "os votos"} no percentual até a Justiça Eleitoral
-            decidir. Se a candidatura for barrada, eles viram nulos.
+    <div className="mx-3 mt-2 text-[11px] leading-snug">
+      <div className="flex items-center gap-3">
+        <button
+          onClick={() => setOpen((o) => !o)}
+          aria-expanded={open}
+          className="flex min-w-0 flex-1 items-center gap-1 text-left text-muted-foreground hover:text-foreground"
+        >
+          <span className="truncate">
+            {many ? (
+              <span className="font-semibold text-foreground">{names.length} candidatos</span>
+            ) : (
+              <span className="font-semibold text-foreground">{names[0]}</span>
+            )}{" "}
+            sub judice
           </span>
-        </span>
-      </p>
-      {on && (
-        <p className="mt-1.5 pl-5">
-          {scenario.outcome && <span className="font-semibold">{scenario.outcome} </span>}
-          <span className="text-muted-foreground">
-            Percentuais só sobre os votos válidos, com os votos apurados até agora.
+          <ChevronDown
+            className={`size-3 shrink-0 transition-transform ${open ? "rotate-180" : ""}`}
+          />
+        </button>
+        <button
+          role="switch"
+          aria-checked={on}
+          onClick={onToggle}
+          className="flex shrink-0 items-center gap-1.5 text-muted-foreground hover:text-foreground"
+        >
+          {many ? "se anulados" : "se anulado"}
+          <span
+            className={`relative h-3.5 w-6 rounded-full transition-colors ${on ? "bg-primary" : "bg-input"}`}
+          >
+            <span
+              className={`absolute top-0.5 size-2.5 rounded-full bg-background shadow-sm transition-transform ${on ? "translate-x-3" : "translate-x-0.5"}`}
+            />
           </span>
+        </button>
+      </div>
+      {open && (
+        <p className="mt-1 text-muted-foreground">
+          {many && names.length <= 3 && <>{names.join(", ")}. </>}O TSE conta{" "}
+          {many ? "esses votos" : "os votos"} no percentual até a Justiça Eleitoral julgar a
+          candidatura. Se for barrada, eles viram nulos e saem da conta.
         </p>
       )}
-      <button
-        onClick={onToggle}
-        aria-pressed={on}
-        className="mt-1.5 pl-5 font-semibold text-primary hover:underline"
-      >
-        {on
-          ? "Voltar aos números do TSE"
-          : `Ver como fica se ${many ? "forem anulados" : "for anulado"}`}
-      </button>
+      {on && scenario.outcome && <p className="mt-1 font-semibold">{scenario.outcome}</p>}
     </div>
   );
 }
