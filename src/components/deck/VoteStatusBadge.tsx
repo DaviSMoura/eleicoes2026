@@ -25,7 +25,7 @@ export function VoteStatusBadge({
   if (!match) return null;
   const [, label, tip] = match;
   return (
-    <Tip label={tip}>
+    <Tip side="top" label={tip}>
       <span
         className={`shrink-0 rounded-sm border border-border font-semibold text-muted-foreground ${
           large ? "mt-2 px-1.5 py-0.5 text-[11px]" : "px-1 text-[10px]"

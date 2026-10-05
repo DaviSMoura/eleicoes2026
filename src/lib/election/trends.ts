@@ -32,6 +32,7 @@ export type TrendSummary = {
   winLabel: string;
   call: { kind: "vitoria" | "segundo-turno" | "lider" | "indefinido"; text: string };
   decided: string[]; // elected for sure: by the TSE status or mathematically (see mathDecided)
+  inRunoff: string[]; // in the 2nd round for sure: by the TSE status or mathematically (mathRunoff)
 };
 
 const MAJORITARIAN = new Set([1, 3, 5]);
@@ -191,15 +192,18 @@ const isRunoff = (status: string) => /2º turno/i.test(status);
 // voter of the sections not yet counted shows up and votes validly for a rival.
 // - with a runoff (Presidente, Governador): the leader keeps more than half of the valid votes;
 // - Senador: a candidate within the seats stays ahead of the first one outside them.
+// Only where the election is actually decided: Presidente in Brasil, Governador and Senador in
+// their state. Leading the Presidente count in one state, or a state race in one city, elects
+// nobody.
+function inElectionScope(meta: RaceMeta) {
+  const isState = meta.abr.length === 2 && meta.abr !== "br" && meta.abr !== "zz";
+  return meta.cargo === 1 ? meta.abr === "br" : isState;
+}
+
 export function mathDecided(race: Race): string[] {
   const { meta, data } = race;
   if (!MAJORITARIAN.has(meta.cargo) || !data.electorateCounted) return [];
-  // Only where the election is actually decided: Presidente in Brasil, Governador and Senador
-  // in their state. Leading the Presidente count in one state, or a state race in one city,
-  // elects nobody.
-  const isState = meta.abr.length === 2 && meta.abr !== "br" && meta.abr !== "zz";
-  const electionScope = meta.cargo === 1 ? meta.abr === "br" : isState;
-  if (!electionScope) return [];
+  if (!inElectionScope(meta)) return [];
   const remaining = Math.max(0, data.electorate - data.electorateCounted);
   const ranked = [...data.votes].sort((a, b) => b[1] - a[1]);
   if (RUNOFF.has(meta.cargo)) {
@@ -211,6 +215,34 @@ export function mathDecided(race: Race): string[] {
     .slice(0, meta.seats)
     .filter(([, v]) => v > firstOut + remaining)
     .map(([id]) => id);
+}
+
+// Candidates already in the 2nd round no matter how the votes still to be counted go, using the
+// same worst case as mathDecided:
+// - nobody can still pass half of the valid votes, even taking every vote not yet counted. Each
+//   candidate is tested in the scenario best for them: votes of annulled or sub judice rivals
+//   stay out of the base (they would be null), and a sub judice candidate counts as validated;
+// - and at most one rival can still end ahead of the candidate (taking all remaining votes
+//   between two rivals, a tie counting as passing).
+export function mathRunoff(race: Race): string[] {
+  const { meta, data } = race;
+  if (!RUNOFF.has(meta.cargo) || !data.electorateCounted || !data.valid) return [];
+  if (!inElectionScope(meta)) return [];
+  const remaining = Math.max(0, data.electorate - data.electorateCounted);
+  const blocked = new Set(data.blocked ?? []);
+  const canWin = data.votes.some(([id, v]) => {
+    const base = data.valid + (blocked.has(id) ? v : 0);
+    return (v + remaining) * 2 > base + remaining;
+  });
+  if (canWin) return [];
+  const ranked = [...data.votes].sort((a, b) => b[1] - a[1]);
+  return ranked.slice(0, 2).flatMap(([id, v]) => {
+    const [a = Infinity, b = Infinity] = ranked
+      .filter(([other]) => other !== id)
+      .map(([, w]) => Math.max(0, v - w))
+      .sort((x, y) => x - y);
+    return remaining < a + b ? [id] : [];
+  });
 }
 
 export function trendsFor(race: Race, ufs?: Race[]): TrendSummary {
@@ -254,6 +286,7 @@ export function trendsFor(race: Race, ufs?: Race[]): TrendSummary {
         runoff: 1,
         runoffPair: [runoff[0]!, runoff[1]!],
         decided: [],
+        inRunoff: runoff,
         winLabel,
         call: {
           kind: "segundo-turno",
@@ -266,6 +299,7 @@ export function trendsFor(race: Race, ufs?: Race[]): TrendSummary {
         runoff: 0,
         runoffPair: null,
         decided: elected,
+        inRunoff: [],
         winLabel,
         call: { kind: "vitoria", text: `Eleito: ${elected.map(nameOf).join(" e ")}` },
       };
@@ -280,6 +314,7 @@ export function trendsFor(race: Race, ufs?: Race[]): TrendSummary {
       runoff: 0,
       runoffPair: null,
       decided,
+      inRunoff: [],
       winLabel,
       call: { kind: "vitoria", text: `Eleito: ${decidedText}, já matematicamente definido` },
     };
@@ -291,6 +326,7 @@ export function trendsFor(race: Race, ufs?: Race[]): TrendSummary {
       runoff: 0,
       runoffPair: null,
       decided,
+      inRunoff: [],
       winLabel,
       call: { kind: "indefinido", text: "Ordem dos mais votados tende a se manter." },
     };
@@ -301,6 +337,7 @@ export function trendsFor(race: Race, ufs?: Race[]): TrendSummary {
       runoff: 0,
       runoffPair: null,
       decided,
+      inRunoff: [],
       winLabel,
       call: { kind: "indefinido", text: "Aguardando as primeiras seções totalizadas." },
     };
@@ -360,7 +397,38 @@ export function trendsFor(race: Race, ufs?: Race[]): TrendSummary {
           : `${open} vagas seguem em disputa`;
     call = { kind: "lider", text: `${decidedText} já está eleito; ${rest}.` };
   }
-  return { items, runoff: runoffP, runoffPair: pair, decided, winLabel, call };
+
+  // A 2nd round already settled by the numbers, before the TSE publishes it.
+  const inRunoff = mathRunoff(race);
+  if (inRunoff.length === 2) {
+    const [a, b] = inRunoff as [string, string];
+    return {
+      items,
+      runoff: 1,
+      runoffPair: [a, b],
+      decided,
+      inRunoff,
+      winLabel,
+      call: {
+        kind: "segundo-turno",
+        text: `2º turno: ${nameOf(a)} × ${nameOf(b)}, já matematicamente definido`,
+      },
+    };
+  }
+  if (inRunoff.length === 1)
+    call = {
+      kind: "segundo-turno",
+      text: `${nameOf(inRunoff[0]!)} já está no 2º turno; o adversário ainda está em aberto.`,
+    };
+  return {
+    items,
+    runoff: inRunoff.length > 0 ? 1 : runoffP,
+    runoffPair: pair,
+    decided,
+    inRunoff,
+    winLabel,
+    call,
+  };
 }
 
 // Rounds percentages so the integers still add up to the rounded total (largest remainder),

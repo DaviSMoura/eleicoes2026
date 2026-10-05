@@ -13,7 +13,14 @@ export function Tip({
   return (
     <Tooltip>
       <TooltipTrigger asChild>{children}</TooltipTrigger>
-      <TooltipContent side={side}>{label}</TooltipContent>
+      {/* Long explanations wrap instead of running off the screen. */}
+      <TooltipContent
+        side={side}
+        collisionPadding={8}
+        className="max-w-[260px] text-pretty leading-snug"
+      >
+        {label}
+      </TooltipContent>
     </Tooltip>
   );
 }

@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { normalizeResult, type RawResult } from "../../../supabase/functions/_shared/tse";
 import {
   mathDecided,
+  mathRunoff,
   projectNational,
   remainingVotes,
   roundShares,
@@ -280,4 +281,67 @@ describe("shares match the TSE", () => {
         expect(shareOf(data, c.sqcand)).toBeCloseTo(Number(c.pvapn.replace(",", ".")), 6);
     });
   }
+});
+
+describe("mathRunoff", () => {
+  // Governador with three candidates A, B, C (+ D, possibly sub judice), `remaining` voters left.
+  const gov = (
+    [a, b, c, d]: [number, number, number, number],
+    remaining: number,
+    subJudiceD = false,
+  ): Race => {
+    const r = race("sp-c0003-e006259", spGovRaw);
+    const ids = r.meta.candidates.map((x) => x.id);
+    const votes = [a, b, c, d];
+    const valid = a + b + c + (subJudiceD ? 0 : d);
+    return {
+      ...r,
+      data: {
+        ...r.data,
+        progress: 90,
+        valid,
+        electorate: 10_000,
+        electorateCounted: 10_000 - remaining,
+        blocked: subJudiceD ? [ids[3]!] : [],
+        votes: r.data.votes.map(([id, , s]): [string, number, string] => [
+          id,
+          votes[ids.indexOf(id)] ?? 0,
+          s,
+        ]),
+      },
+    };
+  };
+  const ids = (r: Race) => r.meta.candidates.map((x) => x.id);
+
+  it("settles the runoff pair when nobody can pass 50% nor reach the top two", () => {
+    const r = gov([400, 350, 150, 100], 100);
+    expect(mathRunoff(r)).toEqual([ids(r)[0], ids(r)[1]]);
+    expect(trendsFor(r).call.text).toMatch(/2º turno: .* já matematicamente definido/);
+  });
+
+  it("keeps the second seat open while the third can still pass the second", () => {
+    const r = gov([390, 310, 300, 0], 100);
+    expect(mathRunoff(r)).toEqual([ids(r)[0]]);
+  });
+
+  it("settles nothing while the leader can still pass 50%", () => {
+    expect(mathRunoff(gov([480, 300, 200, 20], 100))).toEqual([]);
+  });
+
+  it("counts a sub judice rival's votes as null when testing the leader (RJ 2026)", () => {
+    // Under 50% of valid + sub judice votes, but over 50% if the sub judice ones are annulled.
+    const r = gov([490, 430, 30, 50], 5, true);
+    expect(mathRunoff(r)).toEqual([]);
+    // Without the sub judice candidate, the same leader could not pass 50%: runoff settled.
+    expect(mathRunoff(gov([490, 430, 30, 50], 5))).toEqual([ids(r)[0], ids(r)[1]]);
+  });
+
+  it("only settles where the election happens", () => {
+    const state = gov([400, 350, 150, 100], 100);
+    const city: Race = {
+      ...state,
+      meta: { ...state.meta, abr: "sp71072", key: "sp71072-c0003-e006259" },
+    };
+    expect(mathRunoff(city)).toEqual([]);
+  });
 });

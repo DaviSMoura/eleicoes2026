@@ -43,7 +43,7 @@ export function raceStatus(race: Race, ufs?: Race[]): RaceStatus {
   const tr = trendsFor(race, ufs);
   const nameOf = (id: string) => displayName(meta.candidates.find((c) => c.id === id)?.name ?? id);
   const decided = tr.decided.map(nameOf);
-  if (data.votes.some(([, , s]) => RUNOFF_STATUS.test(s)))
+  if (data.votes.some(([, , s]) => RUNOFF_STATUS.test(s)) || tr.inRunoff.length === 2)
     return { ...base, state: "segundo-turno", decided };
   if (tr.decided.length >= meta.seats) return { ...base, state: "eleito", decided };
   if (tr.decided.length > 0) return { ...base, state: "parcial", decided };

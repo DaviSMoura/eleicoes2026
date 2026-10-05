@@ -15,6 +15,7 @@ import {
   type Place,
   type Race,
 } from "@/lib/election/live";
+import { ResultBadge } from "./ResultBadge";
 import { VoteStatusBadge } from "./VoteStatusBadge";
 
 const nf = new Intl.NumberFormat("pt-BR");
@@ -63,6 +64,7 @@ export function CandidateDetail({ race, place, ufRaces, candidateId, onBack }: P
     );
   }
 
+  const tr = trendsFor(race, ufRaces);
   const row = data.votes.find((r) => r[0] === c.id);
   const votes = row?.[1] ?? 0;
   const status = row?.[2] ?? "";
@@ -89,7 +91,16 @@ export function CandidateDetail({ race, place, ufRaces, candidateId, onBack }: P
         {c.partyName && (
           <p className="text-[11px] text-muted-foreground">{displayName(c.partyName)}</p>
         )}
-        {status && <StatusBadge status={status} />}
+        {status ? (
+          <StatusBadge status={status} />
+        ) : (
+          <ResultBadge
+            status=""
+            decided={tr.decided.includes(c.id)}
+            runoff={tr.inRunoff.includes(c.id)}
+            large
+          />
+        )}
         <VoteStatusBadge status={voteStatusOf(data, c.id)} large />
       </div>
 

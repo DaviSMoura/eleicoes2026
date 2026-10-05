@@ -1,4 +1,5 @@
 import { Tip } from "./Tip";
+import { ResultBadge } from "./ResultBadge";
 import { VoteStatusBadge } from "./VoteStatusBadge";
 import { Quociente } from "./Quociente";
 import { CandidateDetail } from "./CandidateDetail";
@@ -273,30 +274,6 @@ function Avatar({ race, id, name }: { race: Race; id: string; name: string }) {
   );
 }
 
-function StatusBadge({ status, decided }: { status: string; decided?: boolean }) {
-  if (/^eleit/i.test(status) || (!status && decided)) {
-    const badge = (
-      <span className="rounded-sm border border-[var(--party-4)] px-1 text-[10px] font-semibold text-[var(--party-4)]">
-        eleito
-      </span>
-    );
-    return status ? (
-      badge
-    ) : (
-      <Tip label="Matematicamente eleito: nem com todos os votos que faltam apurar os adversários alcançam. O TSE ainda não publicou o resultado final.">
-        {badge}
-      </Tip>
-    );
-  }
-  if (/2º turno/i.test(status))
-    return (
-      <span className="rounded-sm border border-border px-1 text-[10px] text-muted-foreground">
-        2º turno
-      </span>
-    );
-  return null;
-}
-
 const PAGE_FIRST = 10;
 const PAGE_MORE = 50;
 const normalize = (x: string) =>
@@ -422,7 +399,11 @@ function Scoreboard({
                     }}
                   />
                 </div>
-                <StatusBadge status={status} decided={tr.decided.includes(c.id)} />
+                <ResultBadge
+                  status={status}
+                  decided={tr.decided.includes(c.id)}
+                  runoff={tr.inRunoff.includes(c.id)}
+                />
                 <VoteStatusBadge status={voteStatusOf(data, c.id)} />
                 <Delta d={deltaOf(c.id)} />
                 <span className="tnum w-[76px] text-right text-[11px] text-muted-foreground">
