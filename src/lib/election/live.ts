@@ -5,6 +5,7 @@ import { useEffect, useMemo, useSyncExternalStore } from "react";
 import { supabase } from "@/lib/supabase";
 import {
   CARGO,
+  GOVERNOR_RUNOFF_UFS,
   UFS,
   keyFor,
   photoUrl,
@@ -14,11 +15,14 @@ import {
   topicsFor,
   type RaceData,
   type RaceMeta,
+  type Round,
 } from "../../../supabase/functions/_shared/tse";
 import { colorsFor } from "./colors";
 import type { HistoryPoint, Race } from "./trends";
 
 export type { HistoryPoint, Race, Trend, TrendPoint, TrendSummary } from "./trends";
+export type { Round } from "../../../supabase/functions/_shared/tse";
+export { GOVERNOR_RUNOFF_UFS } from "../../../supabase/functions/_shared/tse";
 // The TSE's reason when a candidate's votes are not valid ("Anulado sub judice", "Anulado").
 export const voteStatusOf = (data: RaceData, id: string) =>
   data.voteStatus?.find(([c]) => c === id)?.[1];
@@ -68,14 +72,54 @@ const DEP_ESTADUAL: Office = { cargo: CARGO.depEstadual, label: "Dep. Est." };
 // The Federal District elects deputados distritais instead of estaduais.
 const DEP_DISTRITAL: Office = { cargo: CARGO.depDistrital, label: "Dep. Dist." };
 
-export const officesFor = (placeId: string): Office[] => {
+// In the 2nd round only Presidente (everywhere) and Governador (in the states that have a runoff)
+// are voted; the other offices stay with the 1st round.
+export const officesFor = (placeId: string, round: Round = 1): Office[] => {
   const kind = placeKind(placeId);
   if (kind === "br" || kind === "zz") return OFFICES.slice(0, 1);
+  if (round === 2)
+    return OFFICES.slice(0, GOVERNOR_RUNOFF_UFS.includes(placeId.slice(0, 2)) ? 2 : 1);
   return [...OFFICES, placeId.startsWith("df") ? DEP_DISTRITAL : DEP_ESTADUAL];
 };
 
 // Presidente per UF plus abroad ("zz"): feeds the Brasil column's projection and states grid.
-const NATIONAL_UF_KEYS = [...UFS, "zz"].map((uf) => keyFor(uf, CARGO.presidente));
+const nationalUfKeys = (round: Round) =>
+  [...UFS, "zz"].map((uf) => keyFor(uf, CARGO.presidente, round));
+const NATIONAL_UF_KEYS: Record<Round, string[]> = { 1: nationalUfKeys(1), 2: nationalUfKeys(2) };
+
+// ---------- round ----------
+// One choice for the whole deck, saved with the columns. Until the visitor picks one, the deck
+// opens on the 2nd round from its election day on.
+const ROUND_KEY = "apuracao26:turno";
+const RUNOFF_DAY = Date.parse("2026-10-25T00:00:00-03:00");
+export const RUNOFF_DATE_LABEL = "25/10";
+export const FIRST_ROUND_DATE_LABEL = "04/10";
+export const defaultRound = (now = Date.now()): Round => (now >= RUNOFF_DAY ? 2 : 1);
+
+let round: Round | null = null;
+const roundListeners = new Set<() => void>();
+const readRound = (): Round => {
+  if (round) return round;
+  try {
+    const saved = localStorage.getItem(ROUND_KEY);
+    round = saved === "1" ? 1 : saved === "2" ? 2 : defaultRound();
+  } catch {
+    round = defaultRound();
+  }
+  return round;
+};
+export function setRound(next: Round) {
+  round = next;
+  safeSetItem(ROUND_KEY, String(next));
+  roundListeners.forEach((l) => l());
+}
+const subscribeRound = (l: () => void) => {
+  roundListeners.add(l);
+  return () => roundListeners.delete(l);
+};
+// The server render has no storage: it uses the date default, and the client corrects it.
+export const useRound = (): Round =>
+  useSyncExternalStore(subscribeRound, readRound, () => defaultRound());
 
 // Proportional races (deputados): seats are distributed by the quociente eleitoral.
 export const isProportional = (cargo: number) =>
@@ -280,9 +324,20 @@ async function watch(keys: string[], withHistory: boolean, lite = false) {
       races.set(key, race);
       writeCache(key, race);
     }
+    // A race nobody had opened is fetched from the TSE by the backend on the spot, and some of a
+    // large batch (a new round's 28 states) can fail there. Pushes only update races we already
+    // hold, so ask again for what did not come back.
+    if (!lite) retryMissing(chunk.filter((k) => !races.has(k)));
     if (status.error) status = { ...status, error: null };
     emit();
   }
+}
+
+const missingTries = new Map<string, number>();
+function retryMissing(keys: string[]) {
+  const due = keys.filter((k) => (missingTries.get(k) ?? 0) < 3);
+  due.forEach((k) => missingTries.set(k, (missingTries.get(k) ?? 0) + 1));
+  if (due.length) setTimeout(() => retry(due), 5000);
 }
 
 // Realtime: one channel per topic (a place, or the Presidente of all UFs), shared by every
@@ -448,10 +503,13 @@ export type Column = {
   ufRaces: Race[]; // Brasil only: Presidente per UF (+ abroad), for the projection and the grid
 };
 
-export function useColumn(placeId: string): Column {
-  const offices = officesFor(placeId);
-  const mainKeys = useMemo(() => offices.map((o) => keyFor(placeId, o.cargo)), [placeId]); // eslint-disable-line react-hooks/exhaustive-deps
-  const extra = placeId === "br" ? NATIONAL_UF_KEYS : null;
+export function useColumn(placeId: string, round: Round = 1): Column {
+  const offices = officesFor(placeId, round);
+  const mainKeys = useMemo(
+    () => officesFor(placeId, round).map((o) => keyFor(placeId, o.cargo, round)),
+    [placeId, round],
+  );
+  const extra = placeId === "br" ? NATIONAL_UF_KEYS[round] : null;
 
   useEffect(() => {
     const keys = [...mainKeys, ...(extra ?? [])];
@@ -475,20 +533,19 @@ export function useColumn(placeId: string): Column {
 
 // Everything the status column shows: Presidente in Brasil and per state, plus Governador and
 // Senador of every state. Uses the aggregated topics, never the per-place ones (those carry the
-// large deputados lists).
-const STATUS_KEYS = {
-  br: keyFor("br", CARGO.presidente),
-  pres: NATIONAL_UF_KEYS,
-  gov: UFS.map((uf) => keyFor(uf, CARGO.governador)),
-  sen: UFS.map((uf) => keyFor(uf, CARGO.senador)),
+// large deputados lists). In the 2nd round: Presidente, and Governador where there is a runoff.
+const statusKeys = (round: Round) => {
+  const keys = {
+    br: keyFor("br", CARGO.presidente, round),
+    pres: NATIONAL_UF_KEYS[round],
+    gov: (round === 2 ? GOVERNOR_RUNOFF_UFS : UFS).map((uf) => keyFor(uf, CARGO.governador, round)),
+    sen: round === 2 ? [] : UFS.map((uf) => keyFor(uf, CARGO.senador)),
+  };
+  const topics = [placeTopic("br"), PRESIDENT_BY_UF_TOPIC, STATE_RACE_TOPICS[CARGO.governador]!];
+  if (keys.sen.length) topics.push(STATE_RACE_TOPICS[CARGO.senador]!);
+  return { keys, all: [keys.br, ...keys.pres, ...keys.gov, ...keys.sen], topics };
 };
-const STATUS_ALL = [STATUS_KEYS.br, ...STATUS_KEYS.pres, ...STATUS_KEYS.gov, ...STATUS_KEYS.sen];
-const STATUS_TOPICS = [
-  placeTopic("br"),
-  PRESIDENT_BY_UF_TOPIC,
-  STATE_RACE_TOPICS[CARGO.governador]!,
-  STATE_RACE_TOPICS[CARGO.senador]!,
-];
+const STATUS: Record<Round, ReturnType<typeof statusKeys>> = { 1: statusKeys(1), 2: statusKeys(2) };
 
 export type StatusRaces = {
   br: Race | undefined;
@@ -505,20 +562,21 @@ const byUf = (keys: string[]) =>
     }),
   );
 
-export function useStatusRaces(): StatusRaces {
+export function useStatusRaces(round: Round = 1): StatusRaces {
+  const { keys, all, topics } = STATUS[round];
   useEffect(() => {
-    retain(STATUS_ALL, [], STATUS_TOPICS);
-    return () => release(STATUS_ALL, STATUS_TOPICS);
-  }, []);
+    retain(all, [], topics);
+    return () => release(all, topics);
+  }, [all, topics]);
   const v = useSyncExternalStore(subscribeStore, getVersion, getVersion);
   return useMemo(
     () => ({
-      br: races.get(STATUS_KEYS.br),
-      pres: byUf(STATUS_KEYS.pres),
-      gov: byUf(STATUS_KEYS.gov),
-      sen: byUf(STATUS_KEYS.sen),
+      br: races.get(keys.br),
+      pres: byUf(keys.pres),
+      gov: byUf(keys.gov),
+      sen: byUf(keys.sen),
     }),
-    [v], // eslint-disable-line react-hooks/exhaustive-deps
+    [v, keys], // eslint-disable-line react-hooks/exhaustive-deps
   );
 }
 

@@ -20,6 +20,8 @@ import rjGov from "./__fixtures__/rj-c0003-e006259-u.json";
 import spSen from "./__fixtures__/sp-c0005-e006259-u.json";
 import spGovRaw from "./__fixtures__/sp-c0003-e006259-u.json";
 import pref2024 from "./__fixtures__/sp71072-c0011-e000619-u.json";
+import brPres2 from "./__fixtures__/br-c0001-e006258-u.json";
+import dfGov2 from "./__fixtures__/df-c0003-e006260-u.json";
 
 function race(key: string, raw: unknown, votes: Record<string, number> = {}, progress = 0): Race {
   const { meta, data } = normalizeResult(key, raw as RawResult);
@@ -343,5 +345,30 @@ describe("mathRunoff", () => {
       meta: { ...state.meta, abr: "sp71072", key: "sp71072-c0003-e006259" },
     };
     expect(mathRunoff(city)).toEqual([]);
+  });
+});
+
+describe("2nd round", () => {
+  it("has no runoff chance and calls the winner by majority", () => {
+    const r = race("br-c0001-e006258", brPres2, {}, 0);
+    const flavio = idOf(r, "FLAVIO BOLSONARO");
+    const lula = idOf(r, "LULA");
+    const counted = race("br-c0001-e006258", brPres2, { [flavio]: 5200, [lula]: 4800 }, 60);
+    const tr = trendsFor(counted);
+    expect(tr.runoff).toBe(0);
+    expect(tr.runoffPair).toBeNull();
+    expect(tr.inRunoff).toEqual([]);
+    expect(tr.call.kind).not.toBe("segundo-turno");
+  });
+
+  it("decides Governador mathematically, never as a runoff", () => {
+    const base = race("df-c0003-e006260", dfGov2);
+    const celina = idOf(base, "CELINA LEÃO");
+    const grass = idOf(base, "LEANDRO GRASS");
+    const r = race("df-c0003-e006260", dfGov2, { [celina]: 700, [grass]: 300 }, 90);
+    // Every section counted: the leader already has the majority.
+    r.data.electorateCounted = r.data.electorate;
+    expect(mathRunoff(r)).toEqual([]);
+    expect(mathDecided(r)).toEqual([celina]);
   });
 });

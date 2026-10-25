@@ -20,6 +20,15 @@ Fechou a aba e voltou depois, tá tudo lá, do jeito que você deixou.
 
 <img src="docs/screenshots/adicionar-coluna.png" alt="Busca de estados e municípios para adicionar uma coluna" width="720">
 
+### 1º e 2º turno
+
+Embaixo do logo, na barra lateral, tem o seletor de **turno**.
+Ele vale pro painel todo: as colunas continuam iguais, só trocam os números pelos do turno escolhido.
+No dia do 2º turno o site já abre nele, e a escolha fica salva junto com as colunas.
+
+No 2º turno só tem Presidente, em todo lugar, e Governador nos estados onde teve 2º turno (AC, AM, DF, ES, RN e TO).
+As outras abas somem, e o 1º turno continua a um clique, com o resultado final.
+
 ### Status da apuração
 
 É o resumo geral, em seis abas.
