@@ -5,7 +5,7 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 import {
   COLOR_FREEZE_PROGRESS,
   assignColors,
-  isOlderGeneration,
+  isStaleGeneration,
   normalizeResult,
   topicsFor,
   resultUrl,
@@ -108,6 +108,7 @@ type LatestRow = {
   key: string;
   idg: string;
   sections: number;
+  tse_at: string | null;
   colors: Record<string, number>;
   colors_frozen: boolean;
 };
@@ -154,7 +155,7 @@ export async function refreshMany(
 
   const prevRes = await db
     .from("results_latest")
-    .select("key, idg, sections, colors, colors_frozen")
+    .select("key, idg, sections, tse_at, colors, colors_frozen")
     .in(
       "key",
       fresh.map((f) => f.key),
@@ -171,7 +172,11 @@ export async function refreshMany(
         const prev = prevBy.get(key);
         const race: NormalizedRace = normalizeResult(key, got.body);
         // A stale CDN edge answered: keep what we have and our etag, and retry next cycle.
-        if (prev && isOlderGeneration(race.data.idg, prev.idg)) return;
+        if (
+          prev &&
+          isStaleGeneration(race.data, { tseAt: prev.tse_at ?? "", sections: prev.sections })
+        )
+          return;
 
         const frozen = prev?.colors_frozen ?? false;
         const colors = frozen && prev ? prev.colors : assignColors(race.meta, race.data);

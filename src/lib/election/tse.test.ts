@@ -5,7 +5,7 @@ import {
   abUrl,
   assignColors,
   diffAb,
-  isOlderGeneration,
+  isStaleGeneration,
   isSecondRound,
   keyFor,
   topicsFor,
@@ -174,13 +174,30 @@ describe("topicsFor", () => {
   });
 });
 
-describe("isOlderGeneration", () => {
-  // Real answers from two CDN edges for ma-c0001-e006257 in the same second (04/10 17:21).
+describe("isStaleGeneration", () => {
+  const gen = (tseAt: string, sections: number) => ({ tseAt, sections });
   it("rejects a stale edge and accepts newer or first answers", () => {
-    expect(isOlderGeneration("1089371", "1100978")).toBe(true);
-    expect(isOlderGeneration("1100978", "1089371")).toBe(false);
-    expect(isOlderGeneration("1100978", "1100978")).toBe(false);
-    expect(isOlderGeneration("1100978", null)).toBe(false);
+    // Two CDN edges for ma-c0001-e006257 in the same second (04/10): 0.19% and 0.85% counted.
+    const old = gen("2026-10-04T20:20:41.000Z", 40);
+    const fresh = gen("2026-10-04T20:21:10.000Z", 180);
+    expect(isStaleGeneration(old, fresh)).toBe(true);
+    expect(isStaleGeneration(fresh, old)).toBe(false);
+    expect(isStaleGeneration(fresh, fresh)).toBe(false);
+    expect(isStaleGeneration(fresh, null)).toBe(false);
+  });
+
+  it("goes by the generation time, not the idg", () => {
+    // 2nd round night: the first file with votes (19:01, idg 3946341) against the empty one we
+    // held (16:47, idg 3951063). The stored time comes back from Postgres in its own format.
+    const empty = gen("2026-10-25T19:47:00+00:00", 0);
+    const counted = gen("2026-10-25T22:01:56.000Z", 1909);
+    expect(isStaleGeneration(counted, empty)).toBe(false);
+    expect(isStaleGeneration(empty, counted)).toBe(true);
+  });
+
+  it("falls back to sections counted without a time", () => {
+    expect(isStaleGeneration(gen("", 10), gen("", 20))).toBe(true);
+    expect(isStaleGeneration(gen("", 20), gen("", 10))).toBe(false);
   });
 });
 

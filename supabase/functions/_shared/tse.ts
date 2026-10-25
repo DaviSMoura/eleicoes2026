@@ -342,13 +342,19 @@ export function topicsFor(key: string): string[] {
 
 // ---------- generations ----------
 // The TSE CDN has many edge servers and they do not all refresh at once: in the same second,
-// one returns generation 1100978 (0.85% counted) and another 1089371 (0.19%). The idg grows
-// with every generation, so anything older than what we stored is a stale edge, not news.
-export function isOlderGeneration(incoming: string, stored: string | null | undefined) {
+// one returns 0.85% counted and another 0.19%. Anything generated before what we stored is a
+// stale edge, not news. The idg cannot tell: the TSE's origins keep separate counters, and on
+// the 2nd round night every file with votes (idg 3946341, 19:01) came below the empty one we
+// held (3951063, 16:47), so the count stayed at 0%. Go by the generation time (dg/hg), then by
+// sections counted.
+export type Generation = { tseAt: string; sections: number };
+
+export function isStaleGeneration(incoming: Generation, stored: Generation | null | undefined) {
   if (!stored) return false;
-  const a = Number(incoming);
-  const b = Number(stored);
-  return Number.isFinite(a) && Number.isFinite(b) && a < b;
+  const a = Date.parse(incoming.tseAt);
+  const b = Date.parse(stored.tseAt);
+  if (Number.isFinite(a) && Number.isFinite(b) && a !== b) return a < b;
+  return incoming.sections < stored.sections;
 }
 
 // ---------- change detection over the "-ab" (abrangência) index files ----------
