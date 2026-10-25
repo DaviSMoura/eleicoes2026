@@ -5,7 +5,14 @@ export const TSE_BASE = "https://resultados.tse.jus.br/oficial/ele2026";
 
 export const ELECTION_FEDERAL = "6257";
 export const ELECTION_STATE = "6259";
+// 2nd round (the TSE config's "cdt2" of each 1st-round election).
+export const ELECTION_FEDERAL_2 = "6258";
+export const ELECTION_STATE_2 = "6260";
 export const ELECTIONS = [ELECTION_FEDERAL, ELECTION_STATE] as const;
+
+export type Round = 1 | 2;
+export const isSecondRound = (ele: string) =>
+  ele === ELECTION_FEDERAL_2 || ele === ELECTION_STATE_2;
 
 export const CARGO = {
   presidente: 1,
@@ -46,17 +53,27 @@ export const UFS = [
   "to",
 ] as const;
 
+// States with a Governador runoff in 2026, as the TSE config lists them for the 2nd round
+// (comum/config/ele-c.json, election 6260). Presidente has a runoff everywhere.
+export const GOVERNOR_RUNOFF_UFS: readonly string[] = ["ac", "am", "df", "es", "rn", "to"];
+
 // ---------- keys ----------
 // A race key is the stem of the TSE file name, e.g. "sp71072-c0003-e006259".
 // `abr` is "br", a UF ("sp"), "zz" (abroad) or a UF followed by the municipality code ("sp71072").
 
 export type ParsedKey = { abr: string; uf: string; cargo: number; ele: string };
 
-export const electionFor = (cargo: number) =>
-  cargo === CARGO.presidente ? ELECTION_FEDERAL : ELECTION_STATE;
+export const electionFor = (cargo: number, round: Round = 1) =>
+  cargo === CARGO.presidente
+    ? round === 2
+      ? ELECTION_FEDERAL_2
+      : ELECTION_FEDERAL
+    : round === 2
+      ? ELECTION_STATE_2
+      : ELECTION_STATE;
 
-export const keyFor = (abr: string, cargo: number) =>
-  `${abr}-c${String(cargo).padStart(4, "0")}-e${electionFor(cargo).padStart(6, "0")}`;
+export const keyFor = (abr: string, cargo: number, round: Round = 1) =>
+  `${abr}-c${String(cargo).padStart(4, "0")}-e${electionFor(cargo, round).padStart(6, "0")}`;
 
 export function parseKey(key: string): ParsedKey {
   const m = /^([a-z]{2})(\d*)-c(\d{4})-e(\d{6})$/.exec(key);

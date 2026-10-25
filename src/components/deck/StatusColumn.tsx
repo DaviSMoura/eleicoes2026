@@ -17,6 +17,7 @@ import {
   useStatusRaces,
   type Race,
   type RaceStatus,
+  type Round,
 } from "@/lib/election/live";
 import { BRAZIL_CENTROIDS, BRAZIL_PATHS, BRAZIL_VIEWBOX } from "./brazil-map.gen";
 import { PartyPie } from "./PartyPie";
@@ -59,6 +60,7 @@ const VIEWS: { id: View; label: string; title: string }[] = [
 ];
 
 type Props = {
+  round: Round;
   onRemove: () => void;
   onMove: (dir: -1 | 1) => void;
   isFirst: boolean;
@@ -67,8 +69,10 @@ type Props = {
 
 // The overview: how far the count is, and who leads (or already won) each state for
 // Presidente, Governador and Senador.
-export function StatusColumn({ onRemove, onMove, isFirst, isLast }: Props) {
-  const st = useStatusRaces();
+export function StatusColumn({ round, onRemove, onMove, isFirst, isLast }: Props) {
+  const st = useStatusRaces(round);
+  // Senado and deputados have no 2nd round.
+  const views = round === 2 ? VIEWS.slice(0, 3) : VIEWS;
   const [view, setView] = useState<View>("apuracao");
   const br = st.br;
   const presUfs = useMemo(() => [...st.pres.values()], [st.pres]);
@@ -126,7 +130,7 @@ export function StatusColumn({ onRemove, onMove, isFirst, isLast }: Props) {
           </div>
         </div>
         <nav className="flex">
-          {VIEWS.map((v) => (
+          {views.map((v) => (
             <button
               key={v.id}
               title={v.title}
@@ -159,7 +163,7 @@ export function StatusColumn({ onRemove, onMove, isFirst, isLast }: Props) {
         ) : view === "presidente" ? (
           <OfficeView races={st.pres} national={{ br, ufs: presUfs }} office="Presidente" />
         ) : view === "governador" ? (
-          <OfficeView races={st.gov} office="Governador" />
+          <OfficeView races={st.gov} office="Governador" runoff={round === 2} />
         ) : view === "senador" ? (
           <OfficeView races={st.sen} office="Senador" />
         ) : view === "depfed" ? (
@@ -323,10 +327,12 @@ function OfficeView({
   races,
   office,
   national,
+  runoff = false,
 }: {
   races: Map<string, Race>;
   office: "Presidente" | "Governador" | "Senador";
   national?: { br: Race; ufs: Race[] };
+  runoff?: boolean; // Governador in the 2nd round: only some states vote
 }) {
   // Colors are per race inside a column; on a map with many races each party gets one color,
   // so PL, PP and UNIÃO (all blue-ish by preference) do not blend together.
@@ -362,28 +368,35 @@ function OfficeView({
   const summary =
     office === "Presidente"
       ? null
-      : office === "Governador"
+      : office === "Governador" && runoff
         ? [
+            plural(inMap.length, "estado no 2º turno", "estados no 2º turno"),
             plural(count(["eleito"]), "eleito", "eleitos"),
-            plural(count(["segundo-turno"]), "com 2º turno", "com 2º turno"),
-            plural(count(["tende-segundo-turno"]), "tende ao 2º turno", "tendem ao 2º turno"),
-            plural(
-              count(["tende-vencer", "lidera", "disputa", "parcial", "aguardando"]),
-              "em disputa",
-              "em disputa",
-            ),
+            plural(count(["tende-vencer"]), "tende a vencer", "tendem a vencer"),
+            plural(count(["lidera", "disputa", "aguardando"]), "em disputa", "em disputa"),
           ]
-        : [
-            [
-              inMap.reduce((n, [, s]) => n + s.decided.length, 0),
-              `de ${inMap.length * 2} vagas definidas`,
-            ] as const,
-            plural(
-              count(["eleito"]),
-              "estado com as duas vagas definidas",
-              "estados com as duas vagas definidas",
-            ),
-          ];
+        : office === "Governador"
+          ? [
+              plural(count(["eleito"]), "eleito", "eleitos"),
+              plural(count(["segundo-turno"]), "com 2º turno", "com 2º turno"),
+              plural(count(["tende-segundo-turno"]), "tende ao 2º turno", "tendem ao 2º turno"),
+              plural(
+                count(["tende-vencer", "lidera", "disputa", "parcial", "aguardando"]),
+                "em disputa",
+                "em disputa",
+              ),
+            ]
+          : [
+              [
+                inMap.reduce((n, [, s]) => n + s.decided.length, 0),
+                `de ${inMap.length * 2} vagas definidas`,
+              ] as const,
+              plural(
+                count(["eleito"]),
+                "estado com as duas vagas definidas",
+                "estados com as duas vagas definidas",
+              ),
+            ];
 
   const nationalCall = national ? trendsFor(national.br, national.ufs).call.text : null;
 
@@ -407,6 +420,11 @@ function OfficeView({
               ))}
           </div>
         )}
+        {runoff && (
+          <p className="mt-1.5 text-[12px] text-muted-foreground">
+            Os outros estados elegeram o governador no 1º turno e ficam apagados no mapa.
+          </p>
+        )}
         {office === "Presidente" && (
           <p className="text-[12px] text-muted-foreground">
             Quem lidera em cada estado. Presidente é decidido no país todo, então aqui ninguém é
@@ -426,6 +444,12 @@ function OfficeView({
           checks={office === "Presidente" ? undefined : settled}
           describe={(uf) => {
             const s = statuses.get(uf);
+            if (!s && runoff)
+              return (
+                <span className="text-muted-foreground">
+                  {ufLabel(uf)}: governador eleito no 1º turno
+                </span>
+              );
             if (!s?.leader)
               return <span className="text-muted-foreground">{ufLabel(uf)}: aguardando</span>;
             return (

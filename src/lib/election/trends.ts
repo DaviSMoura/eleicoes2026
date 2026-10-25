@@ -1,5 +1,9 @@
 // Trends over real TSE data: projection, chance of winning, runoff.
-import type { RaceData, RaceMeta } from "../../../supabase/functions/_shared/tse";
+import {
+  isSecondRound,
+  type RaceData,
+  type RaceMeta,
+} from "../../../supabase/functions/_shared/tse";
 import { displayName } from "./names";
 
 export type HistoryPoint = {
@@ -37,6 +41,8 @@ export type TrendSummary = {
 
 const MAJORITARIAN = new Set([1, 3, 5]);
 const RUNOFF = new Set([1, 3]);
+// Presidente and Governador can go to a 2nd round, unless the race already is one.
+const hasRunoffRound = (meta: RaceMeta) => RUNOFF.has(meta.cargo) && !isSecondRound(meta.ele);
 
 // Base of every percentage, as the TSE publishes them ("votos válidos computados", vvc): the
 // valid votes plus those of candidates whose votes were annulled or are sub judice. Without it a
@@ -226,7 +232,7 @@ export function mathDecided(race: Race): string[] {
 //   between two rivals, a tie counting as passing).
 export function mathRunoff(race: Race): string[] {
   const { meta, data } = race;
-  if (!RUNOFF.has(meta.cargo) || !data.electorateCounted || !data.valid) return [];
+  if (!hasRunoffRound(meta) || !data.electorateCounted || !data.valid) return [];
   if (!inElectionScope(meta)) return [];
   const remaining = Math.max(0, data.electorate - data.electorateCounted);
   const blocked = new Set(data.blocked ?? []);
@@ -268,7 +274,7 @@ export function trendsFor(race: Race, ufs?: Race[]): TrendSummary {
     };
   });
 
-  const hasRunoff = RUNOFF.has(meta.cargo);
+  const hasRunoff = hasRunoffRound(meta);
   const winLabel = seats > 1 ? "Eleito" : "1º lugar";
   const ranked = [...items].sort((a, b) => b.projected - a.projected);
   const pair: [string, string] | null =

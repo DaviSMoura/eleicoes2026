@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { mergeHistory, safeSetItem, type HistoryPoint } from "./live";
+import { defaultRound, mergeHistory, officesFor, safeSetItem, type HistoryPoint } from "./live";
 
 const pt = (sections: number, valid = sections * 10): HistoryPoint => ({
   sections,
@@ -57,5 +57,28 @@ describe("safeSetItem", () => {
       throw new DOMException("denied", "SecurityError");
     });
     expect(safeSetItem("apuracao26:theme", "dark")).toBe(false);
+  });
+});
+
+describe("officesFor in the 2nd round", () => {
+  const cargos = (place: string) => officesFor(place, 2).map((o) => o.cargo);
+  it("keeps Presidente everywhere and Governador only where there is a runoff", () => {
+    expect(cargos("br")).toEqual([1]);
+    expect(cargos("zz12345")).toEqual([1]);
+    expect(cargos("sp")).toEqual([1]);
+    expect(cargos("sp71072")).toEqual([1]);
+    expect(cargos("df")).toEqual([1, 3]);
+    expect(cargos("am")).toEqual([1, 3]);
+    expect(cargos("ac01120")).toEqual([1, 3]);
+  });
+
+  it("leaves the 1st round untouched", () => {
+    expect(officesFor("sp").map((o) => o.cargo)).toEqual([1, 3, 5, 6, 7]);
+    expect(officesFor("df").map((o) => o.cargo)).toEqual([1, 3, 5, 6, 8]);
+  });
+
+  it("opens on the 2nd round from its election day on", () => {
+    expect(defaultRound(Date.parse("2026-10-24T23:59:00-03:00"))).toBe(1);
+    expect(defaultRound(Date.parse("2026-10-25T00:00:00-03:00"))).toBe(2);
   });
 });
