@@ -33,6 +33,7 @@ import {
   voteStatusOf,
   type Place,
   type Race,
+  type Round,
 } from "@/lib/election/live";
 
 const nf = new Intl.NumberFormat("pt-BR");
@@ -72,19 +73,20 @@ function Num({ value, format }: { value: number; format: (n: number) => string }
 
 type Props = {
   place: Place;
+  round: Round;
   onRemove: () => void;
   onMove: (dir: -1 | 1) => void;
   isFirst: boolean;
   isLast: boolean;
 };
 
-export function CityColumn({ place, onRemove, onMove, isFirst, isLast }: Props) {
-  const offices = officesFor(place.id);
+export function CityColumn({ place, round, onRemove, onMove, isFirst, isLast }: Props) {
+  const offices = officesFor(place.id, round);
   const [cargo, setCargo] = useState(offices[0]!.cargo);
   const [parties, setParties] = useState<string[]>([]);
   // Candidate page open in this column; the list stays mounted (hidden) to keep its state.
   const [selected, setSelected] = useState<string | null>(null);
-  const column = useColumn(place.id);
+  const column = useColumn(place.id, round);
   const race = column.races.get(cargo);
   const national = place.kind === "br";
 
@@ -203,6 +205,12 @@ export function CityColumn({ place, onRemove, onMove, isFirst, isLast }: Props) 
               </button>
             ))}
           </nav>
+          {round === 2 && (place.kind === "uf" || place.kind === "mun") && (
+            <p className="px-3 pt-2 text-[11px] text-muted-foreground">
+              {offices.length > 1 ? "Senador e deputados" : "Governador, senador e deputados"} foram
+              decididos no 1º turno.
+            </p>
+          )}
           {available.length > 1 && (
             <div className="flex gap-1 overflow-x-auto px-3 py-2">
               <button

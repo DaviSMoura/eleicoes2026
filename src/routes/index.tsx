@@ -10,12 +10,18 @@ import { Termo } from "@/components/deck/Termo";
 import { GitHubMark } from "@/components/deck/GitHubMark";
 import {
   DEFAULT_PLACES,
+  FIRST_ROUND_DATE_LABEL,
+  RUNOFF_DATE_LABEL,
+  defaultRound,
   fmtFull,
   fmtWhen,
   loadPlaces,
   safeSetItem,
+  setRound,
   useLiveStatus,
+  useRound,
   type Place,
+  type Round,
 } from "@/lib/election/live";
 
 export const Route = createFileRoute("/")({
@@ -49,6 +55,7 @@ function Deck() {
   const [mounted, setMounted] = useState(false);
   const [light, setLight] = useState(false);
   const live = useLiveStatus();
+  const round = useRound();
 
   useEffect(() => {
     setMounted(true);
@@ -116,6 +123,7 @@ function Deck() {
               <Logo className="mb-2 size-10" />
             </span>
           </Tip>
+          <RoundPicker round={round} live={live.live && !live.error} />
           <Tip label="Adicionar coluna">
             <button
               aria-label="Adicionar coluna"
@@ -188,7 +196,8 @@ function Deck() {
               shown.map((p, i) =>
                 p.kind === "status" ? (
                   <StatusColumn
-                    key={p.id}
+                    key={`${p.id}-${round}`}
+                    round={round}
                     isFirst={i === 0}
                     isLast={i === shown.length - 1}
                     onRemove={() => remove(p.id)}
@@ -196,7 +205,8 @@ function Deck() {
                   />
                 ) : (
                   <CityColumn
-                    key={p.id}
+                    key={`${p.id}-${round}`}
+                    round={round}
                     place={p}
                     isFirst={i === 0}
                     isLast={i === shown.length - 1}
@@ -260,6 +270,53 @@ function Deck() {
         </div>
       </div>
     </TooltipProvider>
+  );
+}
+
+const ROUNDS: { round: Round; label: string; date: string; title: string }[] = [
+  { round: 1, label: "1º", date: FIRST_ROUND_DATE_LABEL, title: "1º turno" },
+  { round: 2, label: "2º", date: RUNOFF_DATE_LABEL, title: "2º turno" },
+];
+
+// Which election every column shows. The columns stay the same; only their data changes.
+function RoundPicker({ round, live }: { round: Round; live: boolean }) {
+  // The current election gets the live dot, like the "Ao vivo" at the bottom.
+  const current = defaultRound();
+  return (
+    <div
+      role="group"
+      aria-label="Turno"
+      className="mb-1 flex w-[52px] flex-col items-center gap-1 border-y border-sidebar-border py-2"
+    >
+      <span className="text-[8px] font-bold uppercase tracking-wider text-muted-foreground">
+        Turno
+      </span>
+      {ROUNDS.map((r) => (
+        <Tip
+          key={r.round}
+          label={`${r.title} · ${r.date}${r.round === current ? (live ? " · ao vivo" : "") : " · encerrado"}`}
+        >
+          <button
+            aria-pressed={round === r.round}
+            aria-label={r.title}
+            onClick={() => setRound(r.round)}
+            className={`flex h-[38px] w-11 flex-col items-center justify-center gap-px rounded-md text-[13px] font-bold leading-none transition-colors ${
+              round === r.round
+                ? "bg-card text-foreground ring-1 ring-primary"
+                : "text-muted-foreground hover:bg-sidebar-accent hover:text-foreground"
+            }`}
+          >
+            <span className="flex items-center gap-0.5">
+              {r.label}
+              {r.round === current && live && (
+                <span className="size-1.5 animate-pulse rounded-full bg-destructive" />
+              )}
+            </span>
+            <span className="tnum text-[9px] font-semibold">{r.date}</span>
+          </button>
+        </Tip>
+      ))}
+    </div>
   );
 }
 

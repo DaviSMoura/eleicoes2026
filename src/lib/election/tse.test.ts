@@ -6,6 +6,7 @@ import {
   assignColors,
   diffAb,
   isOlderGeneration,
+  isSecondRound,
   keyFor,
   topicsFor,
   normalizeResult,
@@ -26,6 +27,8 @@ import capDepFed from "./__fixtures__/sp71072-c0006-e006259-u.json";
 import ver2024 from "./__fixtures__/sp71072-c0013-e000619-u.json";
 import brAb from "./__fixtures__/br-e006257-ab.json";
 import spAb from "./__fixtures__/sp-e006259-ab.json";
+import brPres2 from "./__fixtures__/br-c0001-e006258-u.json";
+import dfGov2 from "./__fixtures__/df-c0003-e006260-u.json";
 
 const raw = (x: unknown) => x as RawResult;
 
@@ -205,5 +208,28 @@ describe("voteStatus", () => {
   it("keeps the TSE's reason for votes that are not valid", () => {
     const { data } = normalizeResult("rj-c0003-e006259", rjGov as unknown as RawResult);
     expect(data.voteStatus).toEqual([[data.blocked[0], "Anulado sub judice"]]);
+  });
+});
+
+describe("2nd round", () => {
+  it("builds 2nd-round keys and urls", () => {
+    expect(keyFor("br", 1, 2)).toBe("br-c0001-e006258");
+    expect(keyFor("df", 3, 2)).toBe("df-c0003-e006260");
+    expect(keyFor("sp71072", 1, 2)).toBe("sp71072-c0001-e006258");
+    expect(resultUrl("df-c0003-e006260")).toBe(
+      "https://resultados.tse.jus.br/oficial/ele2026/6260/dados/df/df-c0003-e006260-u.json",
+    );
+    expect(isSecondRound("6258")).toBe(true);
+    expect(isSecondRound("6260")).toBe(true);
+    expect(isSecondRound("6257")).toBe(false);
+  });
+
+  it("normalizes the 2nd-round files like the 1st-round ones", () => {
+    const pres = normalizeResult("br-c0001-e006258", raw(brPres2));
+    expect(pres.meta.ele).toBe("6258");
+    expect(pres.meta.candidates.map((c) => c.name).sort()).toEqual(["FLAVIO BOLSONARO", "LULA"]);
+    const gov = normalizeResult("df-c0003-e006260", raw(dfGov2));
+    expect(gov.meta.candidates.map((c) => c.party).sort()).toEqual(["PP", "PT"]);
+    expect(gov.data.sectionsTotal).toBe(6969);
   });
 });
